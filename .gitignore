@@ -1,0 +1,11 @@
+# Node y React
+node_modules/
+dist/
+
+# Python y Django
+__pycache__/
+*.pyc
+db.sqlite3
+
+# Variables de entorno
+.env
