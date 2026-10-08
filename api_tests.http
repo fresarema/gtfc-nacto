@@ -1,0 +1,26 @@
+### 1. Test Login Seguro
+POST http://127.0.0.1:8000/api/auth/login/
+Content-Type: application/json
+
+{
+    "email": "admin@nacimiento.cl",
+    "password": "password"
+}
+
+### 2. Test Crear Observacion (Con foto real en Base64)
+POST http://127.0.0.1:8000/api/observaciones/
+Content-Type: application/json
+
+{
+  "descripcion": "Microbasural en la esquina, escombros bloqueando la vereda.",
+  "ubicacion_observacion": {
+    "latitud": -37.4712,
+    "longitud": -72.3531,
+    "direccion": "Colo Colo 456, Los Ángeles"
+  },
+  "fotografia_b64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+}
+
+
+### 3. Test Listar Observaciones Pendientes
+GET http://127.0.0.1:8000/api/observaciones/
