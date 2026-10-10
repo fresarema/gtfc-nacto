@@ -3,7 +3,9 @@ import Login from "./pages/Login/Login";
 import Home from "./pages/Home/Home";
 import CreateTicket from "./pages/CreateTicket/CreateTicket";
 import Profile from "./pages/Profile/Profile";
+import BandejaMunicipal from "./pages/BandejaMunicipal/BandejaMunicipal";
 import ProtectedRoute from "./components/ProtectedRoute";
+
 
 function App() {
   return (
@@ -17,6 +19,7 @@ function App() {
           <Route path="/home" element={<Home />} />
           <Route path="/create-ticket" element={<CreateTicket />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/bandeja-municipal" element={<BandejaMunicipal />} />
         </Route>
 
         {/* Redirección por defecto: si entran a '/' o cualquier ruta no existente */}

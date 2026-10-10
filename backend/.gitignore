@@ -1,0 +1,58 @@
+# Python bytecode y caché
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Entornos virtuales
+venv/
+ENV/
+env/
+.venv/
+
+# Base de datos local de desarrollo
+*.sqlite3
+db.sqlite3
+db.sqlite3-journal
+
+# Variables de entorno y configuraciones sensibles
+.env
+secret_key.py
+local_settings.py
+
+# Archivos estáticos recolectados (Collectstatic)
+staticfiles/
+
+# Archivos multimedia subidos en desarrollo (Evita subir fotos de pruebas a Git)
+media/
+
+# Logs y reportes
+*.log
+celerybeat-schedule
+celerybeat.pid
+
+# Editor y sistema operativo
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
