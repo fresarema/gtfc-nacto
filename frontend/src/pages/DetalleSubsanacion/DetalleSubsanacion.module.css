@@ -1,0 +1,110 @@
+.container {
+  margin-left: 260px;
+  padding: 30px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.backButton:hover {
+  text-decoration: underline;
+}
+
+.cardDetail {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  max-width: 800px;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.cardDetail h1 {
+  font-size: 1.5rem;
+  color: #1e293b;
+  margin: 0;
+}
+
+.badge {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.infoGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 1rem;
+  color: #334155;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 20px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.label {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  min-height: 100px;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.fileInput {
+  padding: 10px 0;
+  font-size: 0.95rem;
+}
+
+.submitButton {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 10px;
+}
+
+.submitButton:hover {
+  background-color: #059669;
+}

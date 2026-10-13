@@ -1,0 +1,85 @@
+.container {
+  margin-left: 260px;
+  padding: 30px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.header {
+  margin-bottom: 25px;
+}
+
+.header h1 {
+  font-size: 1.8rem;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+}
+
+.header p {
+  color: #64748b;
+  margin: 0;
+}
+
+.tableContainer {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.table th {
+  background-color: #f1f5f9;
+  color: #475569;
+  padding: 15px 20px;
+  font-weight: 600;
+}
+
+.table td {
+  padding: 15px 20px;
+  border-top: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.badgePending {
+  background-color: #fef3c7;
+  color: #d97706;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.badgeValidated {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.badgeSubsanated {
+  background-color: #d1fae5;
+  color: #047857;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.emptyState {
+  background: white;
+  padding: 40px;
+  border-radius: 12px;
+  text-align: center;
+  color: #64748b;
+}

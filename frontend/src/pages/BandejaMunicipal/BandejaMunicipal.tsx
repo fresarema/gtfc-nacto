@@ -1,137 +1,98 @@
 import React, { useEffect, useState } from 'react';
 import styles from './BandejaMunicipal.module.css';
 
-interface Ubicacion {
-  latitud?: number;
-  longitud?: number;
-  direccion?: string;
-}
-
 interface Observacion {
-  id_observacion: number;
-  fecha_registro: string;
-  hora_registro: string;
+  id: number;
+  titulo?: string;
   descripcion: string;
-  ubicacion_observacion: string | Ubicacion;
-  estado: string;
-  fotografias: string[];
+  ubicacion: string;
+  estado?: string;
+  fecha?: string;
+  foto?: string;
 }
 
-const BandejaMunicipal: React.FC = () => {
+export const BandejaMunicipal: React.FC = () => {
   const [observaciones, setObservaciones] = useState<Observacion[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchObservaciones = async () => {
-      try {
-        const response = await fetch('http://localhost:8000/api/observaciones/');
+    fetch('http://localhost:8000/api/observaciones/')
+      .then((response) => {
         if (!response.ok) {
-          throw new Error('Error al cargar las observaciones pendientes');
+          throw new Error('Error al conectar con el servidor');
         }
-        const data = await response.json();
+        return response.json();
+      })
+      .then((data) => {
         setObservaciones(data);
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('Error desconocido');
-        }
-      } finally {
         setLoading(false);
-      }
-    };
-
-    fetchObservaciones();
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
   }, []);
 
-  // Función auxiliar para formatear la ubicación independientemente de si llega como string u objeto
-  const formatUbicacion = (ubicacion: string | Ubicacion) => {
-    if (typeof ubicacion === 'string') {
-      return ubicacion;
-    }
-    if (ubicacion && typeof ubicacion === 'object') {
-      if (ubicacion.direccion) {
-        return ubicacion.direccion;
-      }
-      if (ubicacion.latitud !== undefined && ubicacion.longitud !== undefined) {
-        return `${ubicacion.latitud}, ${ubicacion.longitud}`;
-      }
-    }
-    return 'Ubicación no especificada';
-  };
+  // Cálculo de KPIs basados en los datos
+  const totalObservaciones = observaciones.length;
+  const pendientesCount = observaciones.filter(
+    (obs) => !obs.estado || obs.estado.toLowerCase() === 'pendiente'
+  ).length;
+  const atendidasCount = totalObservaciones - pendientesCount;
 
-  if (loading) {
-    return <div className={styles.loading}>Cargando bandeja municipal...</div>;
-  }
-
-  if (error) {
-    return <div className={styles.error}>Error: {error}</div>;
-  }
+  if (loading) return <div className={styles.container}>Cargando indicadores...</div>;
+  if (error) return <div className={styles.container}>Error: {error}</div>;
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>Bandeja Municipal - Observaciones Pendientes</h1>
-        <span className={styles.badge}>
-          {observaciones.length} Pendientes
-        </span>
+      <header className={styles.header}>
+        <h1>Bandeja Municipal - Panel de Control</h1>
+        <p>Resumen general de estado e indicadores de fiscalización</p>
+      </header>
+
+      {/* Sección de Tarjetas KPI */}
+      <div className={styles.kpiGrid}>
+        <div className={`${styles.kpiCard} ${styles.kpiTotal}`}>
+          <h3>Total de Registros</h3>
+          <p className={styles.kpiNumber}>{totalObservaciones}</p>
+          <span className={styles.kpiSubtitle}>Observaciones ingresadas</span>
+        </div>
+
+        <div className={`${styles.kpiCard} ${styles.kpiPending}`}>
+          <h3>Pendientes</h3>
+          <p className={styles.kpiNumber}>{pendientesCount}</p>
+          <span className={styles.kpiSubtitle}>Requieren atención</span>
+        </div>
+
+        <div className={`${styles.kpiCard} ${styles.kpiCompleted}`}>
+          <h3>Atendidas / Resueltas</h3>
+          <p className={styles.kpiNumber}>{atendidasCount}</p>
+          <span className={styles.kpiSubtitle}>Procesadas con éxito</span>
+        </div>
       </div>
 
-      {observaciones.length === 0 ? (
-        <div className={styles.empty}>
-          No hay observaciones pendientes en este momento.
-        </div>
-      ) : (
-        <div className={styles.grid}>
-          {observaciones.map((obs) => (
-            <div key={obs.id_observacion} className={styles.card}>
-              <div>
-                <div className={styles.cardHeader}>
-                  <span className={styles.cardId}>ID: #{obs.id_observacion}</span>
-                  <span className={styles.cardDate}>
-                    {obs.fecha_registro} {obs.hora_registro}
-                  </span>
-                </div>
+      {/* Sección de actividad reciente */}
+      <div className={styles.recentSection}>
+        <h2>Actividad Reciente</h2>
+        {observaciones.length === 0 ? (
+          <p>No hay observaciones registradas.</p>
+        ) : (
+          <ul className={styles.recentList}>
+            {observaciones.slice(0, 5).map((obs, index) => {
+              const itemKey = obs.id ? `recent-${obs.id}-${index}` : `recent-idx-${index}`;
+              const ticketId = obs.id ?? (index + 1);
 
-                <div className={styles.cardBody}>
-                  <p className={styles.description}>{obs.descripcion}</p>
-                  
-                  <div className={styles.location}>
-                    <span className={styles.locationLabel}>Ubicación:</span> {formatUbicacion(obs.ubicacion_observacion)}
-                  </div>
-
-                  {obs.fotografias && obs.fotografias.length > 0 && (
-                    <div className={styles.photosSection}>
-                      <p className={styles.photosTitle}>Evidencia Fotográfica:</p>
-                      <div className={styles.photosContainer}>
-                        {obs.fotografias.map((fotoUrl, index) => (
-                          <a key={index} href={`http://localhost:8000${fotoUrl}`} target="_blank" rel="noopener noreferrer">
-                            <img 
-                              src={`http://localhost:8000${fotoUrl}`} 
-                              alt={`Evidencia ${index}`} 
-                              className={styles.photoThumbnail}
-                            />
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className={styles.cardFooter}>
-                <button className={styles.btnSecondary}>
-                  Ver detalle
-                </button>
-                <button className={styles.btnPrimary}>
-                  Gestionar / Atender
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+              return (
+                <li key={itemKey} className={styles.recentItem}>
+                  <span><strong># {ticketId}</strong> - {obs.ubicacion || 'Sin ubicación'}</span>
+                  <span className={styles.badge}>{obs.estado || 'Pendiente'}</span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 };
