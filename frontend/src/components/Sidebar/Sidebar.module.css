@@ -1,3 +1,26 @@
+/* 🍔 Botón de Hamburguesa (Solo visible en móviles) */
+.hamburgerButton {
+  display: none;
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 1100;
+  background-color: #1e293b;
+  color: #f8fafc;
+  border: none;
+  border-radius: 6px;
+  width: 42px;
+  height: 42px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.backdrop {
+  display: none;
+}
+
+/* Estilos base del Sidebar (Escritorio) */
 .sidebar {
   width: 260px;
   background-color: #1e293b; /* Azul oscuro elegante */
@@ -10,6 +33,8 @@
   left: 0;
   box-shadow: 4px 0 10px rgba(0, 0, 0, 0.05);
   z-index: 100;
+  transition: transform 0.3s ease-in-out;
+  box-sizing: border-box;
 }
 
 .brand {
@@ -19,6 +44,18 @@
   letter-spacing: 0.5px;
   border-bottom: 1px solid #334155;
   color: #38bdf8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.closeButton {
+  display: none; /* Se oculta en PC */
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  cursor: pointer;
+  color: #f8fafc;
 }
 
 .nav {
@@ -27,6 +64,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow-y: auto;
 }
 
 .link {
@@ -57,4 +95,77 @@
   font-size: 0.85rem;
   color: #64748b;
   text-align: center;
+}
+
+/* ==========================================
+   📱 COMPORTAMIENTO MÓVIL (Pantallas < 768px)
+   ================================---------- */
+@media (max-width: 767px) {
+  .hamburgerButton {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* Ocultamos el sidebar fuera de la pantalla por defecto */
+  .sidebar {
+    transform: translateX(-100%);
+    z-index: 1050;
+  }
+
+  /* Se despliega al abrirse */
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: 5px 0 15px rgba(0,0,0,0.3);
+  }
+
+  .closeButton {
+    display: block; /* Visible en la cabecera del menú móvil */
+  }
+
+  .backdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1040;
+  }
+}
+
+.footer {
+  padding: 20px;
+  border-top: 1px solid #334155;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+}
+
+.logoutButton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #ef4444;
+  color: #ffffff;
+  border: none;
+  padding: 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.logoutButton:hover {
+  background-color: #dc2626;
+}
+
+.versionText {
+  font-size: 0.8rem;
+  color: #64748b;
 }

@@ -1,12 +1,17 @@
 .container {
-  margin-left: 260px;
-  padding: 30px;
-  background-color: #f8fafc;
-  min-height: 100vh;
+  padding: 24px 32px;
+  width: 100%;
   box-sizing: border-box;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
+/* En escritorio, dejamos el espacio exacto para que el menú de 260px no tape el contenido */
+@media (min-width: 768px) {
+  .container {
+    padding-left: 290px;
+  }
+}
 .header {
   margin-bottom: 25px;
 }

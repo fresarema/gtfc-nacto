@@ -1,5 +1,5 @@
 .container {
-  margin-left: 260px;
+  margin-left: 260px; /* Deja espacio para el Sidebar en escritorio */
   padding: 30px;
   background-color: #f8fafc;
   min-height: 100vh;
@@ -30,6 +30,8 @@
   padding: 30px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   max-width: 800px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .headerRow {
@@ -37,6 +39,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .cardDetail h1 {
@@ -86,6 +90,7 @@
   box-sizing: border-box;
   font-family: inherit;
   font-size: 0.95rem;
+  resize: vertical;
 }
 
 .fileInput {
@@ -107,4 +112,19 @@
 
 .submitButton:hover {
   background-color: #059669;
+}
+
+/* ==========================================
+   📱 ADAPTACIÓN MÓVIL (< 768px)
+   ================================---------- */
+@media (max-width: 767px) {
+  .container {
+    margin-left: 0; /* Ocupa todo el ancho cuando el sidebar es flotante/oculto */
+    padding: 20px 15px;
+    padding-top: 70px; /* Deja espacio para el botón hamburguesa */
+  }
+
+  .cardDetail {
+    padding: 20px;
+  }
 }

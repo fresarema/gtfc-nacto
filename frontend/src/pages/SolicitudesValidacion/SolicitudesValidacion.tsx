@@ -2,97 +2,144 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './SolicitudesValidacion.module.css';
 
-interface Observacion {
-  id: number;
+interface ObservacionItem {
+  id_observacion?: number;
+  id_ticket?: number;
+  id?: number;
   titulo?: string;
+  nombre?: string;
+  name?: string;
+  title?: string;
+  asunto?: string;
+  ticket_name?: string;
   descripcion: string;
-  ubicacion: string;
   estado?: string;
-  fecha?: string;
-  foto?: string;
+  fecha_registro?: string;
+}
+
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = rawApiUrl.replace(/\/api\/?$/, '');
+
+function parsearDescripcion(desc: string): { tag: string | null; cleanDesc: string } {
+  if (!desc) return { tag: null, cleanDesc: "" };
+  
+  const regex = /^\[(.*?)\]\s*(.*)$/;
+  const coincidencia = desc.match(regex);
+  
+  if (coincidencia) {
+    return {
+      tag: coincidencia[1].trim(),
+      cleanDesc: coincidencia[2].trim()
+    };
+  }
+  
+  return { tag: null, cleanDesc: desc };
 }
 
 export const SolicitudesValidacion: React.FC = () => {
-  const navigate = useNavigate();
-  const [observaciones, setObservaciones] = useState<Observacion[]>([]);
+  const [observaciones, setObservaciones] = useState<ObservacionItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/observaciones/')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Error al conectar con el servidor');
-        }
-        return response.json();
+    // Verificación estricta del rol: si es supervisor, bloquear y redirigir
+    const role = (localStorage.getItem('role') || '').toLowerCase();
+    if (role === 'supervisor' || role === 'empresa') {
+      navigate('/subsanacion', { replace: true });
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    };
+
+    fetch(`${API_BASE_URL}/api/observaciones/`, { headers })
+      .then((res) => {
+        if (!res.ok) throw new Error('Error al conectar con el servidor');
+        return res.json();
       })
-      .then((data) => {
-        setObservaciones(data);
+      .then((data: ObservacionItem[]) => {
+        setObservaciones(data || []);
         setLoading(false);
       })
       .catch((err) => {
         setError(err.message);
         setLoading(false);
       });
-  }, []);
+  }, [navigate]);
 
-  // Filtrar exclusivamente los tickets pendientes de validación
-  const pendientes = observaciones.filter(
-    (obs) => !obs.estado || obs.estado.toLowerCase() === 'pendiente'
-  );
-
-  if (loading) return <div className={styles.container}>Cargando solicitudes de validación...</div>;
+  if (loading) return <div className={styles.container}>Cargando solicitudes...</div>;
   if (error) return <div className={styles.container}>Error: {error}</div>;
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>Solicitudes de Validación</h1>
-        <p>Revisión y aprobación de incidencias pendientes de los inspectores</p>
-      </header>
+      <h2 className={styles.title}>Solicitudes de Validación</h2>
+      
+      <div className={styles.tableContainer}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>N° Registro</th>
+              <th>Título / Descripción</th>
+              <th>Estado</th>
+              <th>Fecha</th>
+              <th className={styles.thActions}>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {observaciones.length === 0 ? (
+              <tr>
+                <td colSpan={5} className={styles.emptyRow}>No hay solicitudes registradas.</td>
+              </tr>
+            ) : (
+              observaciones.map((item) => {
+                const realId = item.id_observacion ?? item.id_ticket ?? item.id;
+                
+                const tituloExplicito = item.titulo || item.nombre || item.title || item.name || item.asunto || item.ticket_name;
+                const { tag, cleanDesc } = parsearDescripcion(item.descripcion);
+                
+                let tituloFinal: string;
+                if (tituloExplicito && tituloExplicito.trim() !== "") {
+                  tituloFinal = tituloExplicito.trim();
+                } else if (tag) {
+                  tituloFinal = tag;
+                } else {
+                  tituloFinal = `Ticket Oficial #${realId}`;
+                }
 
-      {pendientes.length === 0 ? (
-        <div className={styles.emptyState}>
-          <p>No hay solicitudes pendientes de validación en este momento.</p>
-        </div>
-      ) : (
-        <div className={styles.grid}>
-          {pendientes.map((obs, index) => {
-            const itemKey = obs.id ? `obs-${obs.id}-${index}` : `obs-idx-${index}`;
-            const ticketId = obs.id ?? (index + 1); // Respaldo seguro para evitar "undefined"
+                const fechaTexto = item.fecha_registro || 'Sin fecha';
 
-            return (
-              <div key={itemKey} className={styles.card}>
-                <div className={styles.cardHeader}>
-                  <span className={styles.ticketId}>Ticket #{ticketId}</span>
-                  <span className={styles.badgePending}>Pendiente</span>
-                </div>
-
-                {obs.foto && (
-                  <div className={styles.imageContainer}>
-                    <img src={obs.foto} alt={`Evidencia ${ticketId}`} className={styles.image} />
-                  </div>
-                )}
-
-                <div className={styles.cardBody}>
-                  <p><strong>Ubicación:</strong> {obs.ubicacion || 'No especificada'}</p>
-                  <p><strong>Descripción:</strong> {obs.descripcion}</p>
-                  {obs.fecha && <p className={styles.date}><strong>Fecha:</strong> {obs.fecha}</p>}
-                </div>
-
-                <div className={styles.cardFooter}>
-                  <button 
-                    onClick={() => navigate(`/solicitudes-validacion/${ticketId}`)} 
-                    className={styles.validateButton}
-                  >
-                    Ver Detalle / Validar
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                return (
+                  <tr key={realId}>
+                    <td className={styles.tdId}>#{realId}</td>
+                    <td>
+                      <div className={styles.cellContent}>
+                        <strong>{tituloFinal}</strong>
+                        <span className={styles.cellDesc}>{cleanDesc || "(Sin detalles adicionales)"}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={styles.badge}>{item.estado || 'Pendiente'}</span>
+                    </td>
+                    <td className={styles.tdDate}>{fechaTexto}</td>
+                    <td className={styles.tdActions}>
+                      <button 
+                        className={styles.detailButton}
+                        onClick={() => navigate(`/solicitudes-validacion/${realId}`)}
+                      >
+                        Ver Detalle
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

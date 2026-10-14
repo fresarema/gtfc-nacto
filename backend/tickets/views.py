@@ -16,16 +16,11 @@ def login_view(request):
     email = request.data.get('email')
     password = request.data.get('password')
 
-    # Busca al usuario en la base de datos
     usuario = Usuario.objects.filter(email=email).first()
 
-    # check_password toma el texto plano ingresado y lo compara criptográficamente con el hash guardado
     if usuario and check_password(password, usuario.password):
-        
-        # Genera el token
         token = signing.dumps({'id_usuario': usuario.id_usuario})
 
-        # Arma el JSON de respuesta
         data = {
             "token": token,
             "usuario": {
@@ -38,28 +33,48 @@ def login_view(request):
         }
         return Response(data, status=status.HTTP_200_OK)
     
-    # Si falla, devuelve error genérico por seguridad
     return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+@api_view(['GET'])
+def user_profile_view(request):
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({"error": "Token de autorización faltante."}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    token = auth_header.split(' ')[1]
+    try:
+        payload = signing.loads(token)
+        usuario = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
+        
+        return Response({
+            "id_usuario": usuario.id_usuario,
+            "nombre": usuario.nombre,
+            "apellido": usuario.apellido,
+            "email": usuario.email,
+            "rol": usuario.rol,
+            "id_empresa": usuario.id_empresa.id_empresa if usuario.id_empresa else None
+        }, status=status.HTTP_200_OK)
+        
+    except (signing.BadSignature, Usuario.DoesNotExist):
+        return Response({"error": "Token inválido o usuario no encontrado."}, status=status.HTTP_401_UNAUTHORIZED)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['GET', 'POST'])
 def observaciones_view(request):
-    
-    # --------------------------------------------------------
-    # MÉTODO GET: Listar observaciones para la bandeja municipal
-    # --------------------------------------------------------
     if request.method == 'GET':
         try:
-            # Filtra solo las que tienen estado 'Pendiente'
             observaciones_pendientes = ObservacionTerreno.objects.filter(estado='Pendiente')
             
             data = []
             for obs in observaciones_pendientes:
-                # Busca las fotos asociadas a cada observación
                 fotos = Fotografia.objects.filter(id_observacion=obs.id_observacion)
                 rutas_fotos = [foto.url_fotografia for foto in fotos]
                 
-                # Arma el diccionario para el frontend
                 data.append({
+                    "id": obs.id_observacion,
                     "id_observacion": obs.id_observacion,
                     "fecha_registro": obs.fecha_registro,
                     "hora_registro": obs.hora_registro.strftime('%H:%M:%S') if obs.hora_registro else None,
@@ -74,9 +89,6 @@ def observaciones_view(request):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # --------------------------------------------------------
-    # MÉTODO POST: Crear nueva observación desde el móvil
-    # --------------------------------------------------------
     elif request.method == 'POST':
         descripcion = request.data.get('descripcion')
         ubicacion = request.data.get('ubicacion_observacion')
@@ -127,25 +139,20 @@ def observaciones_view(request):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 @api_view(['POST'])
 def convertir_observacion_a_ticket(request):
-    # -------------------------------------------------------------------------
-    # Extracción y validación de identidad vía Token JWT
-    # -------------------------------------------------------------------------
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
-        return Response({"error": "Token de autorización faltante o formato incorrecto. Usa 'Bearer <token>'"}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({"error": "Token de autorización faltante o formato incorrecto."}, status=status.HTTP_401_UNAUTHORIZED)
     
     token = auth_header.split(' ')[1]
     try:
-        # Desencripta el token enviado por el frontend
         payload = signing.loads(token)
         creador = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
         
-        # Validar que quien intenta crear el ticket tenga los permisos operativos correctos
-        roles_permitidos = ['Administrador', 'Usuario Municipal'] # Asegúrate de que este string coincida exacto con lo que guardas en la BD
-        
-        if creador.rol not in roles_permitidos:
+        roles_permitidos = ['administrador', 'admin', 'usuario municipal', 'municipal']
+        if creador.rol.lower() not in roles_permitidos:
             return Response(
                 {"error": f"Tu rol actual ({creador.rol}) no tiene permisos para convertir observaciones a tickets."}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -155,12 +162,11 @@ def convertir_observacion_a_ticket(request):
         return Response({"error": "Token inválido o modificado. Acceso denegado."}, status=status.HTTP_401_UNAUTHORIZED)
     except Usuario.DoesNotExist:
         return Response({"error": "El usuario vinculado a este token ya no existe en el sistema."}, status=status.HTTP_404_NOT_FOUND)
-    # -------------------------------------------------------------------------
 
     id_observacion = request.data.get('id_observacion')
     id_empresa = request.data.get('id_empresa')
     id_area = request.data.get('id_area')
-    prioridad = request.data.get('prioridad')
+    prioridad = request.data.get('prioridad', 'Alta')
     dias_plazo = int(request.data.get('dias_plazo', 5))
     descripcion_ticket = request.data.get('descripcion_ticket')
 
@@ -170,16 +176,17 @@ def convertir_observacion_a_ticket(request):
         if observacion.estado == 'Convertido':
             return Response({"error": "Esta observación ya fue convertida a ticket."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Extrae a la empresa, su área y su supervisor a cargo
-        supervisor = Usuario.objects.filter(id_empresa=id_empresa).first()
-        empresa = Empresa.objects.get(id_empresa=id_empresa)
-        area = Area.objects.get(id_area=id_area)
+        empresa = Empresa.objects.filter(id_empresa=id_empresa).first() if id_empresa else Empresa.objects.first()
+        area = Area.objects.filter(id_area=id_area).first() if id_area else Area.objects.first()
 
-        # Autogenera el código exigido (ej. TK-2026-A1B2)
+        if not empresa or not area:
+            return Response({"error": "Debe existir al menos una empresa y área registradas en la BD."}, status=status.HTTP_400_BAD_REQUEST)
+
+        supervisor = Usuario.objects.filter(id_empresa=empresa.id_empresa).first()
+
         codigo_tk = f"TK-2026-{uuid.uuid4().hex[:4].upper()}"
         fecha_venc = date.today() + timedelta(days=dias_plazo)
 
-        # Crea el Ticket Maestro asignando al 'creador' real que saca del token
         ticket = Ticket.objects.create(
             id_observacion=observacion,
             id_empresa=empresa,
@@ -194,7 +201,6 @@ def convertir_observacion_a_ticket(request):
             cod_consulta_externa=codigo_tk
         )
 
-        # Aplica la inmutabilidad creando el primer registro del Historial con el usuario real
         HistorialTicket.objects.create(
             id_ticket=ticket,
             id_usuario=creador, 
@@ -202,7 +208,6 @@ def convertir_observacion_a_ticket(request):
             comentarios=f"Ticket generado formalmente a partir de la observación ID {observacion.id_observacion}."
         )
 
-        # Actualiza la observación original
         observacion.estado = 'Convertido'
         observacion.save()
 
@@ -227,10 +232,11 @@ def bandeja_supervisor(request):
     token = auth_header.split(' ')[1]
     try:
         payload = signing.loads(token)
-        supervisor = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
+        usuario = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
         
-        # Validar que efectivamente sea un Supervisor
-        if supervisor.rol != 'Supervisor de Empresa Externa':
+        # Permitimos tanto a supervisores como a personal municipal y administradores
+        roles_permitidos = ['supervisor de empresa externa', 'supervisor', 'usuario municipal', 'municipal', 'administrador', 'admin']
+        if usuario.rol.lower() not in roles_permitidos:
             return Response({"error": "Acceso denegado. Rol incorrecto."}, status=status.HTTP_403_FORBIDDEN)
             
     except signing.BadSignature:
@@ -239,19 +245,24 @@ def bandeja_supervisor(request):
         return Response({"error": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
     try:
-        # Filtrar tickets asignados a LA EMPRESA de este supervisor
-        tickets = Ticket.objects.filter(id_empresa=supervisor.id_empresa)
+        # Si es municipal o admin, puede ver todos los tickets. Si es supervisor, solo los de su empresa.
+        if usuario.rol.lower() in ['usuario municipal', 'municipal', 'administrador', 'admin']:
+            tickets = Ticket.objects.all()
+        else:
+            tickets = Ticket.objects.filter(id_empresa=usuario.id_empresa)
         
         data = []
         for tk in tickets:
             data.append({
+                "id": tk.id_ticket,
                 "id_ticket": tk.id_ticket,
                 "cod_consulta_externa": tk.cod_consulta_externa,
                 "prioridad": tk.prioridad,
                 "descripcion": tk.descripcion,
+                "descripcion_ticket": tk.descripcion,
                 "fecha_vencimiento": tk.fecha_vencimiento,
                 "estado": tk.estado,
-                "area_asignada": tk.id_area.nombre_area
+                "area_asignada": tk.id_area.nombre_area if tk.id_area else "General"
             })
             
         return Response(data, status=status.HTTP_200_OK)
@@ -271,30 +282,25 @@ def responder_ticket_supervisor(request, id_ticket):
         payload = signing.loads(token)
         supervisor = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
         
-        if supervisor.rol != 'Supervisor de Empresa Externa':
+        roles_supervisor = ['supervisor de empresa externa', 'supervisor']
+        if supervisor.rol.lower() not in roles_supervisor:
             return Response({"error": "Acceso denegado."}, status=status.HTTP_403_FORBIDDEN)
             
     except (signing.BadSignature, Usuario.DoesNotExist):
         return Response({"error": "Credenciales inválidas."}, status=status.HTTP_401_UNAUTHORIZED)
 
     comentario_respuesta = request.data.get('comentario')
-    nuevo_estado = request.data.get('estado')
-
-    if nuevo_estado != 'Resuelto':
-        return Response({"error": "El supervisor solo puede cambiar el estado a 'Resuelto'."}, status=status.HTTP_400_BAD_REQUEST)
+    nuevo_estado = request.data.get('estado', 'Resuelto')
 
     try:
         ticket = Ticket.objects.get(id_ticket=id_ticket)
 
-        # Seguridad: Verificar que el ticket realmente pertenezca a la empresa del supervisor
-        if ticket.id_empresa != supervisor.id_empresa:
+        if supervisor.id_empresa and ticket.id_empresa != supervisor.id_empresa:
             return Response({"error": "No tienes permiso para modificar este ticket."}, status=status.HTTP_403_FORBIDDEN)
 
-        # 1. Actualizar el estado del ticket
         ticket.estado = nuevo_estado
         ticket.save()
 
-        # 2. Dejar registro inmutable en el Historial
         HistorialTicket.objects.create(
             id_ticket=ticket,
             id_usuario=supervisor,
@@ -303,6 +309,67 @@ def responder_ticket_supervisor(request, id_ticket):
         )
 
         return Response({"mensaje": f"Ticket actualizado a estado {nuevo_estado} exitosamente."}, status=status.HTTP_200_OK)
+
+    except Ticket.DoesNotExist:
+        return Response({"error": "Ticket no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def subsanar_ticket_supervisor(request, id_ticket):
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({"error": "Token de autorización faltante."}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    token = auth_header.split(' ')[1]
+    try:
+        payload = signing.loads(token)
+        supervisor = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
+        
+        roles_supervisor = ['supervisor de empresa externa', 'supervisor']
+        if supervisor.rol.lower() not in roles_supervisor:
+            return Response({"error": "Acceso denegado."}, status=status.HTTP_403_FORBIDDEN)
+            
+    except (signing.BadSignature, Usuario.DoesNotExist):
+        return Response({"error": "Credenciales inválidas."}, status=status.HTTP_401_UNAUTHORIZED)
+
+    comentario = request.data.get('descripcion_solucion') or request.data.get('comentario')
+    foto_archivo = request.FILES.get('foto_evidencia') or request.FILES.get('fotografia')
+
+    try:
+        ticket = Ticket.objects.get(id_ticket=id_ticket)
+
+        if supervisor.id_empresa and ticket.id_empresa != supervisor.id_empresa:
+            return Response({"error": "No tienes permiso para modificar este ticket."}, status=status.HTTP_403_FORBIDDEN)
+
+        ticket.estado = 'En Revisión'
+        ticket.save()
+
+        if foto_archivo and ticket.id_observacion:
+            nombre_archivo = f"subsanacion_tk_{ticket.id_ticket}_{uuid.uuid4().hex[:8]}_{foto_archivo.name}"
+            ruta_carpeta = os.path.join(settings.MEDIA_ROOT, 'fotos')
+            os.makedirs(ruta_carpeta, exist_ok=True)
+            
+            ruta_fisica = os.path.join(ruta_carpeta, nombre_archivo)
+            with open(ruta_fisica, 'wb+') as destination:
+                for chunk in foto_archivo.chunks():
+                    destination.write(chunk)
+
+            ruta_bd = f"{settings.MEDIA_URL}fotos/{nombre_archivo}"
+            Fotografia.objects.create(
+                id_observacion=ticket.id_observacion,
+                url_fotografia=ruta_bd
+            )
+
+        HistorialTicket.objects.create(
+            id_ticket=ticket,
+            id_usuario=supervisor,
+            tipo_accion="Subsanación de Ticket",
+            comentarios=comentario or "Envío de subsanación y evidencia realizado por el supervisor."
+        )
+
+        return Response({"mensaje": "Subsanación y evidencia registradas exitosamente."}, status=status.HTTP_200_OK)
 
     except Ticket.DoesNotExist:
         return Response({"error": "Ticket no encontrado."}, status=status.HTTP_404_NOT_FOUND)
@@ -320,39 +387,38 @@ def auditar_ticket_municipal(request, id_ticket):
         payload = signing.loads(token)
         auditor = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
         
-        # Validar que sea perfil municipal
-        roles_permitidos = ['Administrador', 'Usuario Municipal']
-        if auditor.rol not in roles_permitidos:
+        roles_permitidos = ['administrador', 'admin', 'usuario municipal', 'municipal']
+        if auditor.rol.lower() not in roles_permitidos:
             return Response({"error": "No tienes permisos para auditar y cerrar tickets."}, status=status.HTTP_403_FORBIDDEN)
             
     except (signing.BadSignature, Usuario.DoesNotExist):
         return Response({"error": "Credenciales inválidas."}, status=status.HTTP_401_UNAUTHORIZED)
 
-    comentario_auditoria = request.data.get('comentario')
-    decision_final = request.data.get('estado') # Ej: "Cerrado" (aprobado) o "Abierto" (rechazado)
+    comentario = request.data.get('comentario') or request.data.get('motivo_rechazo')
+    decision_final = request.data.get('estado') # Ej: 'Cerrado' o 'Rechazado'
 
-    if decision_final not in ['Cerrado', 'Rechazado']:
-        return Response({"error": "Estado inválido. La auditoría solo permite 'Cerrado' o 'Rechazado'."}, status=status.HTTP_400_BAD_REQUEST)
+    if decision_final not in ['Cerrado', 'Rechazado', 'Aprobado']:
+        return Response({"error": "Estado inválido. Solo se permite 'Cerrado' (o Aprobado) o 'Rechazado'."}, status=status.HTTP_400_BAD_REQUEST)
     
-    if not decision_final or not comentario_auditoria:
-        return Response({"error": "Debes enviar la decisión de estado y un comentario de auditoría."}, status=status.HTTP_400_BAD_REQUEST)
+    if not decision_final or not comentario:
+        return Response({"error": "Debes enviar la decisión de estado y un comentario u observación."}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         ticket = Ticket.objects.get(id_ticket=id_ticket)
 
-        # 1. Actualizar el estado final del ticket
-        ticket.estado = decision_final
+        # Si se aprueba, pasa a Cerrado. Si se rechaza, vuelve a Abierto/Pendiente para que el supervisor corrija.
+        nuevo_estado = 'Cerrado' if decision_final in ['Cerrado', 'Aprobado'] else 'Rechazado'
+        ticket.estado = nuevo_estado
         ticket.save()
 
-        # 2. Registrar la auditoría en el Historial
         HistorialTicket.objects.create(
             id_ticket=ticket,
             id_usuario=auditor,
             tipo_accion="Auditoría Municipal",
-            comentarios=comentario_auditoria
+            comentarios=f"Decisión: {nuevo_estado}. Motivo/Comentario: {comentario}"
         )
 
-        return Response({"mensaje": f"Ticket auditado y actualizado a estado {decision_final}."}, status=status.HTTP_200_OK)
+        return Response({"mensaje": f"Ticket auditado exitosamente a estado {nuevo_estado}."}, status=status.HTTP_200_OK)
 
     except Ticket.DoesNotExist:
         return Response({"error": "Ticket no encontrado."}, status=status.HTTP_404_NOT_FOUND)
@@ -360,9 +426,68 @@ def auditar_ticket_municipal(request, id_ticket):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(['GET'])
+def detalle_ticket_view(request, id_ticket):
+    try:
+        tk = Ticket.objects.get(id_ticket=id_ticket)
+        
+        # Obtener fotografías
+        fotografias_objs = []
+        if tk.id_observacion:
+            fotografias_objs = Fotografia.objects.filter(id_observacion=tk.id_observacion)
+        
+        rutas_fotos = [f.url_fotografia for f in fotografias_objs]
+        foto_original = rutas_fotos[0] if rutas_fotos else None
+        
+        # Buscar el último comentario de auditoría municipal si el ticket fue rechazado
+        motivo_rechazo = None
+        if tk.estado.lower() == 'rechazado':
+            ultimo_audit = HistorialTicket.objects.filter(id_ticket=tk, tipo_accion="Auditoría Municipal").last()
+            if ultimo_audit:
+                motivo_rechazo = ultimo_audit.comentarios
+
+        # Buscar la última subsanación del supervisor
+        ultimo_historial = HistorialTicket.objects.filter(id_ticket=tk, tipo_accion="Subsanación de Ticket").last()
+        desc_solucion = ultimo_historial.comentarios if ultimo_historial else ""
+        fecha_carga = ultimo_historial.fecha.strftime("%Y-%m-%d %H:%M") if ultimo_historial and hasattr(ultimo_historial, 'fecha') else None
+
+        foto_evidencia = rutas_fotos[-1] if len(rutas_fotos) > 1 else None
+
+        evidencia_data = None
+        if foto_evidencia or desc_solucion or tk.estado.lower() in ['en revisión', 'en proceso']:
+            evidencia_data = {
+                "url_foto": foto_evidencia or foto_original,
+                "descripcion_solucion": desc_solucion,
+                "fecha_carga": fecha_carga
+            }
+
+        data = {
+            "id": tk.id_ticket,
+            "id_ticket": tk.id_ticket,
+            "id_observacion": tk.id_observacion.id_observacion if tk.id_observacion else None,
+            "cod_consulta_externa": tk.cod_consulta_externa,
+            "prioridad": tk.prioridad,
+            "descripcion": tk.descripcion,
+            "descripcion_ticket": tk.descripcion,
+            "estado": tk.estado,
+            "motivo_rechazo": motivo_rechazo,  # <-- NUEVO CAMPO ENVIADO AL FRONTEND
+            "fecha_registro": tk.id_observacion.fecha_registro if tk.id_observacion else None,
+            "fotografias": [foto_original] if foto_original else [],
+            "evidencia": evidencia_data,
+            "ubicacion_observacion": {
+                "direccion": tk.id_observacion.ubicacion_observacion if tk.id_observacion else None
+            } if tk.id_observacion else None
+        }
+
+        return Response(data, status=status.HTTP_200_OK)
+
+    except Ticket.DoesNotExist:
+        return Response({"error": "Ticket no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['POST'])
 def registrar_usuario(request):
-    # 1. Solo un Administrador puede crear cuentas
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
         return Response({"error": "Token de autorización faltante."}, status=status.HTTP_401_UNAUTHORIZED)
@@ -372,21 +497,19 @@ def registrar_usuario(request):
         payload = signing.loads(token)
         creador = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
         
-        if creador.rol != 'Administrador':
+        if creador.rol.lower() not in ['administrador', 'admin']:
             return Response({"error": "Acceso denegado. Solo un Administrador puede registrar usuarios."}, status=status.HTTP_403_FORBIDDEN)
             
     except (signing.BadSignature, Usuario.DoesNotExist):
         return Response({"error": "Token inválido."}, status=status.HTTP_401_UNAUTHORIZED)
 
-    # 2. Capturar los datos enviados por React
     nombre = request.data.get('nombre')
     apellido = request.data.get('apellido')
     email = request.data.get('email')
     password = request.data.get('password')
     rol = request.data.get('rol')
-    id_empresa = request.data.get('id_empresa') # Opcional, solo si es supervisor
+    id_empresa = request.data.get('id_empresa')
 
-    # 3. Validaciones de negocio
     if not all([nombre, apellido, email, password, rol]):
         return Response({"error": "Faltan datos obligatorios (nombre, apellido, email, password, rol)."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -398,14 +521,12 @@ def registrar_usuario(request):
         return Response({"error": "Ya existe un usuario con este correo electrónico."}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        # Lógica para vincular a la empresa si es Supervisor
         empresa_vinculada = None
         if rol == 'Supervisor de Empresa Externa':
             if not id_empresa:
                 return Response({"error": "Debes especificar el id_empresa para un Supervisor."}, status=status.HTTP_400_BAD_REQUEST)
             empresa_vinculada = Empresa.objects.get(id_empresa=id_empresa)
 
-        # 4. Creación del Usuario en la BD con contraseña encriptada
         nuevo_usuario = Usuario.objects.create(
             nombre=nombre,
             apellido=apellido,

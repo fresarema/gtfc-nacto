@@ -3,90 +3,102 @@ import styles from './HistorialTickets.module.css';
 
 interface TicketHistorial {
   id: number;
-  descripcion: string;
-  ubicacion: string;
+  id_ticket?: number;
+  descripcion?: string;
   estado?: string;
-  fecha?: string;
+  fecha_vencimiento?: string;
+  cod_consulta_externa?: string;
+  area_asignada?: string;
 }
 
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = rawApiUrl.replace(/\/api\/?$/, '');
+
 export const HistorialTickets: React.FC = () => {
-  const [tickets, setTickets] = useState<TicketHistorial[]>([]);
+  const [ticketsCerrados, setTicketsCerrados] = useState<TicketHistorial[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/observaciones/')
-      .then((response) => {
-        if (!response.ok) throw new Error('Error al conectar con el servidor');
-        return response.json();
-      })
-      .then((data) => {
-        setTickets(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
+    const fetchHistorial = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
 
-  const getBadgeClass = (estado?: string) => {
-    const est = (estado || 'pendiente').toLowerCase();
-    if (est === 'validado') return styles.badgeValidated;
-    if (est === 'subsanado') return styles.badgeSubsanated;
-    return styles.badgePending;
-  };
+        // Consumimos el endpoint general de supervisión/tickets que lista todos los registros
+        const res = await fetch(`${API_BASE_URL}/api/tickets/supervisor/`, { headers });
+        if (!res.ok) throw new Error('No se pudo cargar el historial de tickets.');
+
+        const data = await res.json();
+        const lista: TicketHistorial[] = Array.isArray(data) ? data : (data.results || []);
+
+        // Filtramos únicamente los tickets que estén cerrados o resueltos
+        const cerrados = lista.filter(t => {
+          const estado = (t.estado || '').toLowerCase();
+          return ['cerrado', 'resuelto'].includes(estado);
+        });
+
+        setTicketsCerrados(cerrados);
+      } catch (err: any) {
+        setError(err.message || 'Error al conectar con el servidor.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistorial();
+  }, []);
 
   if (loading) return <div className={styles.container}>Cargando historial de tickets...</div>;
   if (error) return <div className={styles.container}>Error: {error}</div>;
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>Historial General de Tickets</h1>
-        <p>Registro y trazabilidad completa de todas las incidencias del sistema</p>
-      </header>
+      <h2 className={styles.title}>Historial de Tickets Cerrados</h2>
+      <p className={styles.subtitle}>Registro oficial de todas las observaciones y tickets que han sido subsanados y aprobados.</p>
 
-      {tickets.length === 0 ? (
-        <div className={styles.emptyState}>
-          <p>No hay registros en el historial de tickets.</p>
-        </div>
-      ) : (
-        <div className={styles.tableContainer}>
-          <table className={styles.table}>
-            <thead>
+      <div className={styles.tableContainer}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>N° Registro</th>
+              <th>Código / Asunto</th>
+              <th>Área</th>
+              <th>Estado</th>
+              <th>Fecha Límite / Cierre</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ticketsCerrados.length === 0 ? (
               <tr>
-                <th>ID</th>
-                <th>Ubicación</th>
-                <th>Descripción</th>
-                <th>Fecha</th>
-                <th>Estado Actual</th>
+                <td colSpan={5} className={styles.emptyRow}>No hay tickets cerrados en el historial.</td>
               </tr>
-            </thead>
-            <tbody>
-              {tickets.map((ticket, index) => {
-                const itemKey = ticket.id ? `hist-${ticket.id}-${index}` : `hist-idx-${index}`;
-                const ticketId = ticket.id ?? (index + 1);
-                const estadoTexto = ticket.estado || 'Pendiente';
-
+            ) : (
+              ticketsCerrados.map((item) => {
+                const realId = item.id_ticket || item.id;
                 return (
-                  <tr key={itemKey}>
-                    <td><strong>#{ticketId}</strong></td>
-                    <td>{ticket.ubicacion || 'No especificada'}</td>
-                    <td>{ticket.descripcion}</td>
-                    <td>{ticket.fecha || 'Sin fecha'}</td>
+                  <tr key={realId}>
+                    <td>#{realId}</td>
                     <td>
-                      <span className={getBadgeClass(estadoTexto)}>
-                        {estadoTexto.charAt(0).toUpperCase() + estadoTexto.slice(1)}
-                      </span>
+                      <strong>{item.cod_consulta_externa || `Ticket #${realId}`}</strong>
+                      <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{item.descripcion}</div>
                     </td>
+                    <td>{item.area_asignada || 'General'}</td>
+                    <td>
+                      <span className={styles.badgeCerrado}>{item.estado}</span>
+                    </td>
+                    <td>{item.fecha_vencimiento || 'N/A'}</td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

@@ -1,93 +1,157 @@
 .container {
-  margin-left: 260px;
-  padding: 30px;
-  background-color: #f8fafc;
+  padding: 24px 32px;
+  width: 100%;
   min-height: 100vh;
+  background-color: #f8fafc;
   box-sizing: border-box;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.header {
-  margin-bottom: 25px;
+/* Espacio reservado para el menú lateral en pantallas medianas y grandes */
+@media (min-width: 768px) {
+  .container {
+    padding-left: 290px;
+    padding-right: 32px;
+  }
 }
 
-.header h1 {
-  font-size: 1.8rem;
-  color: #1e293b;
-  margin: 0 0 8px 0;
+.title {
+  color: #0f172a;
+  margin-bottom: 24px;
+  font-size: 1.75rem;
+  font-weight: 700;
 }
 
-.header p {
+.subtitle {
   color: #64748b;
-  margin: 0;
+  font-size: 0.95rem;
+  margin: 0 0 24px 0;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
-}
-
-.card {
+.tableContainer {
   background: white;
   border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  overflow-x: auto;
+  width: 100%;
+  border: 1px solid #e2e8f0;
 }
 
-.cardHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.95rem;
 }
 
-.ticketId {
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.badgeValidated {
-  background-color: #dbeafe;
-  color: #1d4ed8;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.8rem;
+.table th {
+  background-color: #f8fafc;
+  color: #475569;
   font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.cardBody {
-  margin-bottom: 20px;
+.table td {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
   color: #334155;
-  font-size: 0.95krem;
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.tdId {
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.cellContent {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
-.actionButton {
+.cellContent strong {
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.cellDesc {
+  font-size: 0.85rem;
+  color: #64748b;
+  max-width: 350px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #b45309;
+  background: #fef3c7;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.tdDate {
+  white-space: nowrap;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.thActions,
+.tdActions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.detailButton {
   background-color: #2563eb;
   color: white;
   border: none;
-  padding: 10px 16px;
+  padding: 8px 14px;
   border-radius: 6px;
-  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
-  width: 100%;
+  font-weight: 500;
+  font-size: 0.85rem;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.actionButton:hover {
+.detailButton:hover {
   background-color: #1d4ed8;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
 }
 
-.emptyState {
-  background: white;
-  padding: 40px;
-  border-radius: 12px;
+.emptyRow {
   text-align: center;
+  padding: 40px;
   color: #64748b;
+}
+
+/* ==========================================
+   📱 ADAPTACIÓN MÓVIL (< 768px)
+   ================================---------- */
+@media (max-width: 767px) {
+  .container {
+    padding: 70px 15px 20px;
+  }
+
+  .table {
+    min-width: 720px;
+  }
 }

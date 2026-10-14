@@ -72,3 +72,69 @@ export const createTicketAction = async (idTicket: number | string, data: Create
   if (!response.ok) throw new Error("Error al registrar la actuación.");
   return await response.json();
 };
+
+// 5. Obtener lista de observaciones pendientes (Bandeja Municipal / Admin)
+export const getObservations = async () => {
+  const response = await fetch(`${API_URL}/observaciones/`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error("No se pudo obtener el listado de observaciones.");
+  return await response.json();
+};
+
+// 6. Convertir Observación a Ticket Oficial
+export interface ConvertTicketDTO {
+  id_observacion: number;
+  id_empresa: number;
+  id_area: number;
+  prioridad: string;
+  dias_plazo: number;
+  descripcion_ticket: string;
+}
+
+export const convertObservationToTicket = async (data: ConvertTicketDTO) => {
+  const response = await fetch(`${API_URL}/tickets/convertir/`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || errorData.mensaje || "Error al convertir la observación en ticket.");
+  }
+
+  return await response.json();
+};
+
+// 7. Obtener tickets de la empresa del supervisor autenticado
+export const getSupervisorTickets = async () => {
+  const response = await fetch(`${API_URL}/tickets/supervisor/`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error("No se pudieron obtener los tickets del supervisor.");
+  return await response.json();
+};
+
+// 8. Enviar respuesta / resolución del supervisor a un ticket específico
+export interface ResponderTicketDTO {
+  comentario: string;
+  estado: "Resuelto" | "En Proceso" | "Rechazado";
+}
+
+export const responderTicketSupervisor = async (idTicket: number | string, data: ResponderTicketDTO) => {
+  const response = await fetch(`${API_URL}/tickets/supervisor/${idTicket}/responder/`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || errorData.mensaje || "Error al enviar la respuesta del ticket.");
+  }
+
+  return await response.json();
+};

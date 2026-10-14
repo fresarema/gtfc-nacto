@@ -1,0 +1,15 @@
+Usuario Municipal 
+(Rol con permisos para convertir observaciones a tickets)  
+
+Email: municipal@nacimiento.cl   Contraseña: password   
+
+
+Supervisor de Empresa Externa
+
+(Rol para revisar la bandeja de subsanación y responder)
+
+Email: supervisor@servicios.cl   Contraseña: password123   
+
+Fiscalizador (Rol para ingresar observaciones desde terreno):   Email: fiscalizador@nacimiento.cl   Contraseña: password   
+
+Administrador:   Email: admin@nacimiento.cl   Contraseña: password   

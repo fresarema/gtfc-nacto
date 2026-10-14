@@ -6,8 +6,11 @@ export default function Home() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    // Limpia las llaves específicas configuradas en auth.ts (auth_token y auth_token_expiry)
     clearSession();
-    navigate('/login');
+
+    // Redirige al login reemplazando la ruta para evitar que el usuario vuelva atrás con el navegador
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -25,11 +28,12 @@ export default function Home() {
           </button>
         </header>
 
-        {/* Acción Principal: Crear Ticket */}
-        <button onClick={() => navigate('/create-ticket')} 
-        className={styles.primaryActionCard}>
+        {/* Acción Principal: Crear Observación */}
+        <button 
+          onClick={() => navigate('/create-ticket')} 
+          className={styles.primaryActionCard}
+        >
           <h2 className={styles.actionTitle}>Crear Nueva Observación</h2>
-          
         </button>
 
         {/* Acciones Secundarias */}

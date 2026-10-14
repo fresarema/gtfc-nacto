@@ -6,7 +6,6 @@ import Profile from "./pages/Profile/Profile";
 import BandejaMunicipal from "./pages/BandejaMunicipal/BandejaMunicipal";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MainLayout from "./components/MainLayout";
-import SolicitudesValidacion from "./pages/SolicitudesValidacion/SolicitudesValidacion";
 import DetalleTicket from "./pages/DetalleTicket/DetalleTicket";
 import SubsanacionTickets from "./pages/SubsanacionTickets/SubsanacionTickets";
 import DetalleSubsanacion from "./pages/DetalleSubsanacion/DetalleSubsanacion";
@@ -19,25 +18,35 @@ function App() {
         {/* Ruta pública de acceso */}
         <Route path="/login" element={<Login />} />
 
-        {/* Rutas protegidas */}
+        {/* Ruta general autenticada */}
         <Route element={<ProtectedRoute />}>
-          {/* Vistas generales sin barra lateral */}
           <Route path="/home" element={<Home />} />
-          <Route path="/create-ticket" element={<CreateTicket />} />
           <Route path="/profile" element={<Profile />} />
+        </Route>
 
-          {/* Vistas de la Bandeja Municipal que SÍ muestran la barra lateral */}
+        {/* Rutas exclusivas para Fiscalizadores */}
+        <Route element={<ProtectedRoute allowedRoles={['fiscalizador']} />}>
+          <Route path="/create-ticket" element={<CreateTicket />} />
+        </Route>
+
+        {/* Rutas compartidas (Bandeja Municipal, Subsanaciones e Historial permitidos para Admin, Usuario Municipal y Supervisor) */}
+        <Route element={<ProtectedRoute allowedRoles={['administrador', 'admin', 'usuario municipal', 'supervisor de empresa externa', 'supervisor']} />}>
           <Route element={<MainLayout />}>
             <Route path="/bandeja-municipal" element={<BandejaMunicipal />} />
-            <Route path="/solicitudes-validacion" element={<SolicitudesValidacion />} />
-            <Route path="/solicitudes-validacion/:id" element={<DetalleTicket />} />
             <Route path="/subsanacion" element={<SubsanacionTickets />} />
             <Route path="/subsanacion/:id" element={<DetalleSubsanacion />} />
             <Route path="/historial-tickets" element={<HistorialTickets />} />
           </Route>
         </Route>
 
-        {/* Redirección por defecto: si entran a '/' o ruta inexistente */}
+        {/* Ruta EXCLUSIVA de Detalle de Ticket (PROHIBIDA para supervisores - Solo Admin y Usuario Municipal) */}
+        <Route element={<ProtectedRoute allowedRoles={['administrador', 'admin', 'usuario municipal']} />}>
+          <Route element={<MainLayout />}>
+            <Route path="/detalle-ticket/:id" element={<DetalleTicket />} />
+          </Route>
+        </Route>
+
+        {/* Redirección por defecto */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

@@ -22,7 +22,9 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('tickets.urls')),
-]
+    
+    
+] 
 
 # Esto permite que Django muestre las fotos en el navegador durante el desarrollo
 if settings.DEBUG:
