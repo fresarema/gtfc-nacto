@@ -39,3 +39,30 @@ Authorization: Bearer eyJpZF91c3VhcmlvIjoxfQ:1xGnOx:FoPX5ffwBgvSyA8G3NLh0dVUyhvk
   "dias_plazo": 7,
   "descripcion_ticket": "Se requiere limpieza de escombros urgente."
 }
+
+
+### Login Supervisor
+POST http://127.0.0.1:8000/api/auth/login/
+Content-Type: application/json
+
+{
+    "email": "supervisor@servicios.cl",
+    "password": "password123"
+}
+
+
+### Test Bandeja Supervisor (GET)
+GET http://127.0.0.1:8000/api/tickets/supervisor/
+Content-Type: application/json
+Authorization: Bearer eyJpZF91c3VhcmlvIjoyfQ:1xGnps:ldsS4tlH9NifV667iIZmwbT5UEJeRihrcmDdIUrrkps
+
+
+### Test Respuesta de Supervisor (POST)
+POST http://127.0.0.1:8000/api/tickets/supervisor/1/responder/
+Content-Type: application/json
+Authorization: Bearer eyJpZF91c3VhcmlvIjoyfQ:1xGnps:ldsS4tlH9NifV667iIZmwbT5UEJeRihrcmDdIUrrkps
+
+{
+    "comentario": "Se ha retirado la totalidad de los escombros del paso peatonal. Adjuntaremos informe.",
+    "estado": "Resuelto"
+}

@@ -216,3 +216,92 @@ def convertir_observacion_a_ticket(request):
         return Response({"error": "La observación indicada no existe."}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def bandeja_supervisor(request):
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({"error": "Token de autorización faltante."}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    token = auth_header.split(' ')[1]
+    try:
+        payload = signing.loads(token)
+        supervisor = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
+        
+        # Validar que efectivamente sea un Supervisor
+        if supervisor.rol != 'Supervisor de Empresa Externa':
+            return Response({"error": "Acceso denegado. Rol incorrecto."}, status=status.HTTP_403_FORBIDDEN)
+            
+    except signing.BadSignature:
+        return Response({"error": "Token inválido."}, status=status.HTTP_401_UNAUTHORIZED)
+    except Usuario.DoesNotExist:
+        return Response({"error": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        # Filtrar tickets asignados a LA EMPRESA de este supervisor
+        tickets = Ticket.objects.filter(id_empresa=supervisor.id_empresa)
+        
+        data = []
+        for tk in tickets:
+            data.append({
+                "id_ticket": tk.id_ticket,
+                "cod_consulta_externa": tk.cod_consulta_externa,
+                "prioridad": tk.prioridad,
+                "descripcion": tk.descripcion,
+                "fecha_vencimiento": tk.fecha_vencimiento,
+                "estado": tk.estado,
+                "area_asignada": tk.id_area.nombre_area
+            })
+            
+        return Response(data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def responder_ticket_supervisor(request, id_ticket):
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({"error": "Token de autorización faltante."}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    token = auth_header.split(' ')[1]
+    try:
+        payload = signing.loads(token)
+        supervisor = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
+        
+        if supervisor.rol != 'Supervisor de Empresa Externa':
+            return Response({"error": "Acceso denegado."}, status=status.HTTP_403_FORBIDDEN)
+            
+    except (signing.BadSignature, Usuario.DoesNotExist):
+        return Response({"error": "Credenciales inválidas."}, status=status.HTTP_401_UNAUTHORIZED)
+
+    comentario_respuesta = request.data.get('comentario')
+    nuevo_estado = request.data.get('estado', 'Resuelto') # Por defecto pasa a Resuelto
+
+    try:
+        ticket = Ticket.objects.get(id_ticket=id_ticket)
+
+        # Seguridad: Verificar que el ticket realmente pertenezca a la empresa del supervisor
+        if ticket.id_empresa != supervisor.id_empresa:
+            return Response({"error": "No tienes permiso para modificar este ticket."}, status=status.HTTP_403_FORBIDDEN)
+
+        # 1. Actualizar el estado del ticket
+        ticket.estado = nuevo_estado
+        ticket.save()
+
+        # 2. Dejar registro inmutable en el Historial
+        HistorialTicket.objects.create(
+            id_ticket=ticket,
+            id_usuario=supervisor,
+            tipo_accion="Respuesta de Empresa",
+            comentarios=comentario_respuesta
+        )
+
+        return Response({"mensaje": f"Ticket actualizado a estado {nuevo_estado} exitosamente."}, status=status.HTTP_200_OK)
+
+    except Ticket.DoesNotExist:
+        return Response({"error": "Ticket no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
