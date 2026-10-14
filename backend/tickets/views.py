@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.core.files.base import ContentFile
 from django.core import signing
-from django.contrib.auth.hashers import check_password
+from django.contrib.auth.hashers import check_password, make_password
 from .models import Usuario, ObservacionTerreno, Fotografia, Empresa, Area, Ticket, HistorialTicket
 
 @api_view(['POST'])
@@ -356,5 +356,73 @@ def auditar_ticket_municipal(request, id_ticket):
 
     except Ticket.DoesNotExist:
         return Response({"error": "Ticket no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def registrar_usuario(request):
+    # 1. Solo un Administrador puede crear cuentas
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({"error": "Token de autorización faltante."}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    token = auth_header.split(' ')[1]
+    try:
+        payload = signing.loads(token)
+        creador = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
+        
+        if creador.rol != 'Administrador':
+            return Response({"error": "Acceso denegado. Solo un Administrador puede registrar usuarios."}, status=status.HTTP_403_FORBIDDEN)
+            
+    except (signing.BadSignature, Usuario.DoesNotExist):
+        return Response({"error": "Token inválido."}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # 2. Capturar los datos enviados por React
+    nombre = request.data.get('nombre')
+    apellido = request.data.get('apellido')
+    email = request.data.get('email')
+    password = request.data.get('password')
+    rol = request.data.get('rol')
+    id_empresa = request.data.get('id_empresa') # Opcional, solo si es supervisor
+
+    # 3. Validaciones de negocio
+    if not all([nombre, apellido, email, password, rol]):
+        return Response({"error": "Faltan datos obligatorios (nombre, apellido, email, password, rol)."}, status=status.HTTP_400_BAD_REQUEST)
+
+    roles_permitidos = ['Administrador', 'Usuario Municipal', 'Supervisor de Empresa Externa', 'Fiscalizador']
+    if rol not in roles_permitidos:
+        return Response({"error": f"Rol inválido. Debe ser uno de: {roles_permitidos}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if Usuario.objects.filter(email=email).exists():
+        return Response({"error": "Ya existe un usuario con este correo electrónico."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # Lógica para vincular a la empresa si es Supervisor
+        empresa_vinculada = None
+        if rol == 'Supervisor de Empresa Externa':
+            if not id_empresa:
+                return Response({"error": "Debes especificar el id_empresa para un Supervisor."}, status=status.HTTP_400_BAD_REQUEST)
+            empresa_vinculada = Empresa.objects.get(id_empresa=id_empresa)
+
+        # 4. Creación del Usuario en la BD con contraseña encriptada
+        nuevo_usuario = Usuario.objects.create(
+            nombre=nombre,
+            apellido=apellido,
+            email=email,
+            password=make_password(password),
+            rol=rol,
+            id_empresa=empresa_vinculada
+        )
+
+        return Response({
+            "mensaje": "Usuario creado exitosamente.",
+            "id_usuario": nuevo_usuario.id_usuario,
+            "email": nuevo_usuario.email,
+            "rol": nuevo_usuario.rol
+        }, status=status.HTTP_201_CREATED)
+
+    except Empresa.DoesNotExist:
+        return Response({"error": "La empresa especificada no existe en la base de datos."}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
