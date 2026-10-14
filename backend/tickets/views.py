@@ -278,7 +278,10 @@ def responder_ticket_supervisor(request, id_ticket):
         return Response({"error": "Credenciales inválidas."}, status=status.HTTP_401_UNAUTHORIZED)
 
     comentario_respuesta = request.data.get('comentario')
-    nuevo_estado = request.data.get('estado', 'Resuelto') # Por defecto pasa a Resuelto
+    nuevo_estado = request.data.get('estado')
+
+    if nuevo_estado != 'Resuelto':
+        return Response({"error": "El supervisor solo puede cambiar el estado a 'Resuelto'."}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         ticket = Ticket.objects.get(id_ticket=id_ticket)
@@ -328,6 +331,9 @@ def auditar_ticket_municipal(request, id_ticket):
     comentario_auditoria = request.data.get('comentario')
     decision_final = request.data.get('estado') # Ej: "Cerrado" (aprobado) o "Abierto" (rechazado)
 
+    if decision_final not in ['Cerrado', 'Rechazado']:
+        return Response({"error": "Estado inválido. La auditoría solo permite 'Cerrado' o 'Rechazado'."}, status=status.HTTP_400_BAD_REQUEST)
+    
     if not decision_final or not comentario_auditoria:
         return Response({"error": "Debes enviar la decisión de estado y un comentario de auditoría."}, status=status.HTTP_400_BAD_REQUEST)
 
