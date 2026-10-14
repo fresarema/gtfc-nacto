@@ -47,3 +47,40 @@ class Fotografia(models.Model):
 
     class Meta:
         db_table = 'fotografia'
+
+class Ticket(models.Model):
+    id_ticket = models.AutoField(primary_key=True)
+    id_observacion = models.ForeignKey(ObservacionTerreno, on_delete=models.RESTRICT, db_column='id_observacion')
+    id_empresa = models.ForeignKey(Empresa, on_delete=models.RESTRICT, db_column='id_empresa')
+    id_area = models.ForeignKey(Area, on_delete=models.RESTRICT, db_column='id_area')
+    
+    # Relaciones con Usuario requieren related_name cuando hay más de un ForeignKey a la misma tabla
+    supervisor_ticket = models.ForeignKey(Usuario, related_name='tickets_supervisados', on_delete=models.RESTRICT, db_column='supervisor_ticket')
+    creador_ticket = models.ForeignKey(Usuario, related_name='tickets_creados', on_delete=models.RESTRICT, db_column='creador_ticket')
+    
+    prioridad = models.CharField(max_length=50)
+    descripcion = models.TextField() 
+    dias_plazo = models.IntegerField()
+    fecha_creacion = models.DateField(auto_now_add=True)
+    hora_creacion = models.TimeField(auto_now_add=True)
+    fecha_vencimiento = models.DateField(null=True, blank=True)
+    hora_vencimiento = models.TimeField(null=True, blank=True)
+    estado = models.CharField(max_length=50, default='Abierto')
+    cod_consulta_externa = models.CharField(max_length=50, unique=True)
+
+    class Meta:
+        db_table = 'ticket'
+
+
+class HistorialTicket(models.Model):
+    id_historial = models.AutoField(primary_key=True)
+    id_ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, db_column='id_ticket')
+    id_usuario = models.ForeignKey(Usuario, on_delete=models.RESTRICT, db_column='id_usuario')
+    
+    # Inmutabilidad: Cada acción queda registrada con fecha y hora exactas
+    fecha_accion = models.DateTimeField(auto_now_add=True)
+    tipo_accion = models.CharField(max_length=100)
+    comentarios = models.TextField()
+
+    class Meta:
+        db_table = 'historial_ticket'

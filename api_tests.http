@@ -24,3 +24,18 @@ Content-Type: application/json
 
 ### 3. Test Listar Observaciones Pendientes
 GET http://127.0.0.1:8000/api/observaciones/
+
+
+### 4. Test Convertir Observacion a Ticket 
+POST http://127.0.0.1:8000/api/tickets/convertir/
+Content-Type: application/json
+Authorization: Bearer eyJpZF91c3VhcmlvIjoxfQ:1xGnOx:FoPX5ffwBgvSyA8G3NLh0dVUyhvkyvlEJpND712cnJY
+
+{
+  "id_observacion": 1,
+  "id_empresa": 1,
+  "id_area": 1,
+  "prioridad": "Alta",
+  "dias_plazo": 7,
+  "descripcion_ticket": "Se requiere limpieza de escombros urgente."
+}

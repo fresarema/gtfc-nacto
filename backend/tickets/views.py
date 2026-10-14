@@ -1,6 +1,7 @@
 import base64
 import uuid
 import os
+from datetime import timedelta, date
 from django.conf import settings
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -8,7 +9,7 @@ from rest_framework import status
 from django.core.files.base import ContentFile
 from django.core import signing
 from django.contrib.auth.hashers import check_password
-from .models import Usuario, ObservacionTerreno, Fotografia
+from .models import Usuario, ObservacionTerreno, Fotografia, Empresa, Area, Ticket, HistorialTicket
 
 @api_view(['POST'])
 def login_view(request):
@@ -125,3 +126,93 @@ def observaciones_view(request):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def convertir_observacion_a_ticket(request):
+    # -------------------------------------------------------------------------
+    # Extracción y validación de identidad vía Token JWT
+    # -------------------------------------------------------------------------
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({"error": "Token de autorización faltante o formato incorrecto. Usa 'Bearer <token>'"}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    token = auth_header.split(' ')[1]
+    try:
+        # Desencripta el token enviado por el frontend
+        payload = signing.loads(token)
+        creador = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
+        
+        # Validar que quien intenta crear el ticket tenga los permisos operativos correctos
+        roles_permitidos = ['Administrador', 'Usuario Municipal'] # Asegúrate de que este string coincida exacto con lo que guardas en la BD
+        
+        if creador.rol not in roles_permitidos:
+            return Response(
+                {"error": f"Tu rol actual ({creador.rol}) no tiene permisos para convertir observaciones a tickets."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+    except signing.BadSignature:
+        return Response({"error": "Token inválido o modificado. Acceso denegado."}, status=status.HTTP_401_UNAUTHORIZED)
+    except Usuario.DoesNotExist:
+        return Response({"error": "El usuario vinculado a este token ya no existe en el sistema."}, status=status.HTTP_404_NOT_FOUND)
+    # -------------------------------------------------------------------------
+
+    id_observacion = request.data.get('id_observacion')
+    id_empresa = request.data.get('id_empresa')
+    id_area = request.data.get('id_area')
+    prioridad = request.data.get('prioridad')
+    dias_plazo = int(request.data.get('dias_plazo', 5))
+    descripcion_ticket = request.data.get('descripcion_ticket')
+
+    try:
+        observacion = ObservacionTerreno.objects.get(id_observacion=id_observacion)
+        
+        if observacion.estado == 'Convertido':
+            return Response({"error": "Esta observación ya fue convertida a ticket."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Extrae a la empresa, su área y su supervisor a cargo
+        supervisor = Usuario.objects.filter(id_empresa=id_empresa).first()
+        empresa = Empresa.objects.get(id_empresa=id_empresa)
+        area = Area.objects.get(id_area=id_area)
+
+        # Autogenera el código exigido (ej. TK-2026-A1B2)
+        codigo_tk = f"TK-2026-{uuid.uuid4().hex[:4].upper()}"
+        fecha_venc = date.today() + timedelta(days=dias_plazo)
+
+        # Crea el Ticket Maestro asignando al 'creador' real que saca del token
+        ticket = Ticket.objects.create(
+            id_observacion=observacion,
+            id_empresa=empresa,
+            id_area=area,
+            supervisor_ticket=supervisor,
+            creador_ticket=creador, 
+            prioridad=prioridad,
+            descripcion=descripcion_ticket if descripcion_ticket else observacion.descripcion,
+            dias_plazo=dias_plazo,
+            fecha_vencimiento=fecha_venc,
+            estado='Abierto',
+            cod_consulta_externa=codigo_tk
+        )
+
+        # Aplica la inmutabilidad creando el primer registro del Historial con el usuario real
+        HistorialTicket.objects.create(
+            id_ticket=ticket,
+            id_usuario=creador, 
+            tipo_accion="Creación de Ticket",
+            comentarios=f"Ticket generado formalmente a partir de la observación ID {observacion.id_observacion}."
+        )
+
+        # Actualiza la observación original
+        observacion.estado = 'Convertido'
+        observacion.save()
+
+        return Response({
+            "mensaje": "Ticket generado exitosamente",
+            "cod_consulta_externa": ticket.cod_consulta_externa,
+            "id_ticket": ticket.id_ticket
+        }, status=status.HTTP_201_CREATED)
+
+    except ObservacionTerreno.DoesNotExist:
+        return Response({"error": "La observación indicada no existe."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
