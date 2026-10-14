@@ -305,3 +305,50 @@ def responder_ticket_supervisor(request, id_ticket):
         return Response({"error": "Ticket no encontrado."}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def auditar_ticket_municipal(request, id_ticket):
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({"error": "Token de autorización faltante."}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    token = auth_header.split(' ')[1]
+    try:
+        payload = signing.loads(token)
+        auditor = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
+        
+        # Validar que sea perfil municipal
+        roles_permitidos = ['Administrador', 'Usuario Municipal']
+        if auditor.rol not in roles_permitidos:
+            return Response({"error": "No tienes permisos para auditar y cerrar tickets."}, status=status.HTTP_403_FORBIDDEN)
+            
+    except (signing.BadSignature, Usuario.DoesNotExist):
+        return Response({"error": "Credenciales inválidas."}, status=status.HTTP_401_UNAUTHORIZED)
+
+    comentario_auditoria = request.data.get('comentario')
+    decision_final = request.data.get('estado') # Ej: "Cerrado" (aprobado) o "Abierto" (rechazado)
+
+    if not decision_final or not comentario_auditoria:
+        return Response({"error": "Debes enviar la decisión de estado y un comentario de auditoría."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        ticket = Ticket.objects.get(id_ticket=id_ticket)
+
+        # 1. Actualizar el estado final del ticket
+        ticket.estado = decision_final
+        ticket.save()
+
+        # 2. Registrar la auditoría en el Historial
+        HistorialTicket.objects.create(
+            id_ticket=ticket,
+            id_usuario=auditor,
+            tipo_accion="Auditoría Municipal",
+            comentarios=comentario_auditoria
+        )
+
+        return Response({"mensaje": f"Ticket auditado y actualizado a estado {decision_final}."}, status=status.HTTP_200_OK)
+
+    except Ticket.DoesNotExist:
+        return Response({"error": "Ticket no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
