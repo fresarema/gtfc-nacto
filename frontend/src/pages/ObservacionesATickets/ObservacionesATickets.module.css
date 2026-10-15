@@ -1,0 +1,101 @@
+.container {
+  margin-left: 260px;
+  padding: 30px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.title {
+  font-size: 1.6rem;
+  color: #1e293b;
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.subtitle {
+  color: #64748b;
+  font-size: 0.95rem;
+  margin-bottom: 24px;
+}
+
+.tableContainer {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.table th {
+  background-color: #f1f5f9;
+  color: #475569;
+  padding: 14px 20px;
+  font-weight: 600;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.table td {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  vertical-align: middle;
+}
+
+.table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.tdId {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.tdDate {
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.thActions, .tdActions {
+  text-align: right;
+}
+
+.detailButton {
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.detailButton:hover {
+  background-color: #1d4ed8;
+}
+
+.emptyRow {
+  text-align: center;
+  padding: 40px !important;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .container {
+    margin-left: 0;
+    padding: 20px 15px;
+    padding-top: 70px;
+  }
+}

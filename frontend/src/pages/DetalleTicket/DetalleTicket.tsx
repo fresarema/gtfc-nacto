@@ -1,40 +1,49 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import styles from './DetalleTicket.module.css';
 
-interface Fotografia {
-  id_fotografia?: number;
-  url_fotografia?: string;
-  url?: string;
+// Ajusta las rutas relativas para salir de 'pages' y entrar a 'components'
+import { TicketHeader } from '../../components/ticket-detalle/TicketHeader';
+import { TicketInfoCard } from '../../components/ticket-detalle/TicketInfoCard';
+import { EvidenciaViewer } from '../../components/ticket-detalle/EvidenciaViewer';
+import { AuditActionsForm } from '../../components/ticket-detalle/AuditActionsForm';
+
+interface UbicacionObjeto {
+  direccion?: string;
+  nombre?: string;
+  formatted_address?: string;
+  latitud?: number;
+  longitud?: number;
+  text?: string;
+  [key: string]: unknown;
 }
 
-interface EvidenciaSupervisor {
+interface EvidenciaData {
   id_evidencia?: number;
   url_foto?: string;
   url?: string;
+  descripcion?: string;
   descripcion_solucion?: string;
   fecha_carga?: string;
+  [key: string]: unknown;
 }
 
-interface ItemDetalle {
-  id?: number;
-  id_ticket?: number;
-  id_observacion?: number;
-  titulo?: string;
-  nombre?: string;
-  descripcion: string;
-  descripcion_ticket?: string;
-  ubicacion?: string;
-  direccion?: string;
+interface TicketDetalle {
+  id_ticket?: number | string;
+  id_observacion?: number | string;
+  cod_consulta_externa?: string;
   estado?: string;
-  fecha?: string;
-  fecha_registro?: string;
-  hora_registro?: string;
-  prioridad?: string;
-  fotografias?: (Fotografia | string)[];
-  evidencia?: EvidenciaSupervisor | null;
-  ubicacion_observacion?: any;
-  creado_por?: string | { nombre?: string; apellido?: string };
+  ubicacion?: string | UbicacionObjeto;
+  ubicacion_observacion?: string | UbicacionObjeto;
+  creado_por?: string | { nombre?: string; username?: string; email?: string; [key: string]: unknown };
+  fiscalizador?: string | { nombre?: string; username?: string; email?: string; [key: string]: unknown };
+  usuario_creacion?: string | { nombre?: string; username?: string; email?: string; [key: string]: unknown };
+  usuario?: string | { nombre?: string; username?: string; email?: string; [key: string]: unknown };
+  inspector?: string | { nombre?: string; username?: string; email?: string; [key: string]: unknown };
+  nombre_fiscalizador?: string;
+  nombre_inspector?: string;
+  fotografias?: string[];
+  evidencia?: EvidenciaData | null;
+  [key: string]: unknown;
 }
 
 const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -44,418 +53,178 @@ export const DetalleTicket: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [item, setItem] = useState<ItemDetalle | null>(null);
-  const [esObservacion, setEsObservacion] = useState<boolean>(false);
+  const [ticketData, setTicketData] = useState<TicketDetalle | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [isModalEvidenciaOpen, setIsModalEvidenciaOpen] = useState<boolean>(false);
-  const [procesando, setProcesando] = useState<boolean>(false);
-
-  // Formulario para CONVERTIR Observación a Ticket
-  const [idEmpresa, setIdEmpresa] = useState<string>('1');
-  const [idArea, setIdArea] = useState<string>('1');
-  const [prioridad, setPrioridad] = useState<string>('Alta');
-  const [diasPlazo, setDiasPlazo] = useState<number>(5);
-  const [instruccionesTicket, setInstruccionesTicket] = useState<string>('');
-
-  // Formulario para RECHAZAR Subsanación
-  const [mostrarModalRechazo, setMostrarModalRechazo] = useState<boolean>(false);
-  const [motivoRechazo, setMotivoRechazo] = useState<string>('');
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
-    fetchDetail();
+    const fetchDetalle = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
+
+        const res = await fetch(`${API_BASE_URL}/api/tickets/${id}/`, { headers });
+        if (!res.ok) throw new Error('No se pudo obtener el detalle del ticket.');
+
+        const data = await res.json();
+
+        // Función robusta para normalizar la ubicación y evitar [object Object]
+        const parseUbicacion = (ubi: unknown): string => {
+          if (!ubi) return 'Sin dirección registrada';
+          if (typeof ubi === 'string') return ubi;
+          if (typeof ubi === 'object' && ubi !== null) {
+            const ubiObj = ubi as UbicacionObjeto;
+            if (ubiObj.direccion) return String(ubiObj.direccion);
+            if (ubiObj.nombre) return String(ubiObj.nombre);
+            if (ubiObj.formatted_address) return String(ubiObj.formatted_address);
+            if (typeof ubiObj.latitud === 'number' && typeof ubiObj.longitud === 'number') {
+              return `Lat: ${ubiObj.latitud}, Lng: ${ubiObj.longitud}`;
+            }
+            const valoresValidos = Object.values(ubiObj).filter((val) => typeof val === 'string' || typeof val === 'number');
+            if (valoresValidos.length > 0) {
+              return valoresValidos.join(', ');
+            }
+            return ubiObj.text ? String(ubiObj.text) : JSON.stringify(ubiObj);
+          }
+          return String(ubi);
+        };
+
+        const ticketNormalizado: TicketDetalle = {
+          ...data,
+          ubicacion_observacion: parseUbicacion(data.ubicacion || data.ubicacion_observacion)
+        };
+
+        setTicketData(ticketNormalizado);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Error al conectar con el servidor.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) fetchDetalle();
   }, [id]);
 
-  const fetchDetail = async () => {
+  const handleAuditar = async (nuevoEstado: 'Cerrado' | 'Rechazado', comentario: string) => {
     try {
-      setLoading(true);
-      setError(null);
+      setSubmitting(true);
       const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      // 1. Intentar consultar endpoint de tickets
-      const resTicket = await fetch(`${API_BASE_URL}/api/tickets/${id}/`, { headers });
-      
-      if (resTicket.ok) {
-        const ticketData = await resTicket.json();
-        setItem(ticketData);
-        setEsObservacion(false);
-      } else {
-        // 2. Fallback a lista de observaciones
-        const resObs = await fetch(`${API_BASE_URL}/api/observaciones/`, { headers });
-        if (!resObs.ok) throw new Error('No se pudo establecer conexión con el servidor backend.');
-        
-        const listObs: ItemDetalle[] = await resObs.json();
-        const obsEncontrada = listObs.find((obs) => {
-          const realId = obs.id_observacion ?? obs.id;
-          return String(realId) === String(id);
-        });
-
-        if (!obsEncontrada) {
-          throw new Error(`El registro #${id} no existe.`);
-        }
-
-        setItem(obsEncontrada);
-        setEsObservacion(true);
-        setInstruccionesTicket(obsEncontrada.descripcion || '');
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const obtenerUrlImagen = (path?: string | null): string | null => {
-    if (!path) return null;
-    if (path.startsWith('data:image') || path.startsWith('http')) return path;
-    if (path.startsWith('/')) return `${API_BASE_URL}${path}`;
-    return `${API_BASE_URL}/${path}`;
-  };
-
-  // Convertir Observación a Ticket
-  const handleCrearTicket = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setProcesando(true);
-      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-      const realIdObs = item?.id_observacion ?? item?.id ?? id;
-
-      const res = await fetch(`${API_BASE_URL}/api/tickets/convertir/`, {
+      const res = await fetch(`${API_BASE_URL}/api/tickets/auditar/${id}/`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          id_observacion: Number(realIdObs),
-          id_empresa: Number(idEmpresa),
-          id_area: Number(idArea),
-          prioridad,
-          dias_plazo: Number(diasPlazo),
-          descripcion_ticket: instruccionesTicket
-        }),
+        headers,
+        body: JSON.stringify({ estado: nuevoEstado, comentario }),
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || errData.mensaje || 'Error al generar el ticket.');
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(typeof errorData === 'object' && errorData !== null && 'error' in errorData ? String((errorData as { error: unknown }).error) : 'Error al procesar la auditoría.');
       }
 
-      const resData = await res.json();
-      alert(`¡Ticket generado exitosamente! Código: ${resData.cod_consulta_externa}`);
-      navigate('/bandeja-municipal');
-    } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      alert(`Ticket auditado con éxito. Estado: ${nuevoEstado}`);
+      navigate('/historial-tickets');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        alert(`Error: ${err.message}`);
+      } else {
+        alert('Error al procesar la auditoría.');
+      }
     } finally {
-      setProcesando(false);
+      setSubmitting(false);
     }
   };
 
-  // Aprobar subsanación
-  const handleAprobar = async () => {
-    if (!window.confirm('¿Confirmas que la evidencia presentada es satisfactoria y deseas cerrar este ticket?')) return;
+  if (loading) return <div style={{ padding: '2rem' }}>Cargando detalle del ticket...</div>;
+  if (error) return <div style={{ padding: '2rem', color: '#dc2626' }}>Error: {error}</div>;
+  if (!ticketData) return <div style={{ padding: '2rem' }}>No se encontró el ticket.</div>;
 
-    try {
-      setProcesando(true);
-      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-      
-      const res = await fetch(`${API_BASE_URL}/api/tickets/auditar/${id}/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ 
-          estado: 'Cerrado',
-          comentario: 'Subsanación aprobada por el usuario municipal.' 
-        }),
-      });
-
-      if (!res.ok) throw new Error('No se pudo aprobar la subsanación.');
-
-      alert('¡Ticket APROBADO y CERRADO exitosamente!');
-      navigate('/bandeja-municipal');
-    } catch (err: any) {
-      alert(`Error: ${err.message}`);
-    } finally {
-      setProcesando(false);
+  const parseUserField = (field: unknown): string => {
+    if (!field) return '';
+    if (typeof field === 'string') return field;
+    if (typeof field === 'object' && field !== null) {
+      const u = field as { nombre?: unknown; username?: unknown; email?: unknown; first_name?: unknown; last_name?: unknown };
+      const nombreCompleto = [u.first_name, u.last_name].filter(Boolean).join(' ');
+      return String(nombreCompleto || u.nombre || u.username || u.email || '');
     }
+    return '';
   };
 
-  // Rechazar subsanación
-  const handleRechazar = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!motivoRechazo.trim()) {
-      alert('Debes indicar el motivo del rechazo.');
-      return;
-    }
-
-    try {
-      setProcesando(true);
-      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-      
-      const res = await fetch(`${API_BASE_URL}/api/tickets/auditar/${id}/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ 
-          estado: 'Rechazado', 
-          comentario: motivoRechazo 
-        }),
-      });
-
-      if (!res.ok) throw new Error('No se pudo procesar el rechazo.');
-
-      alert('La subsanación fue rechazada y devuelta al supervisor.');
-      navigate('/bandeja-municipal');
-    } catch (err: any) {
-      alert(`Error: ${err.message}`);
-    } finally {
-      setProcesando(false);
-    }
-  };
-
-  if (loading) return <div className={styles.container}>Cargando información...</div>;
-  if (error) return <div className={styles.container}>Error: {error}</div>;
-  if (!item) return null;
-
-  const realIdDisplay = item.id_ticket ?? item.id_observacion ?? item.id ?? id;
-  const estadoActual = item.estado || 'Pendiente';
-
-  // Obtener fotografía original
-  let fotoOriginalUrl = null;
-  if (item.fotografias && Array.isArray(item.fotografias) && item.fotografias.length > 0) {
-    const fotoItem = item.fotografias[0];
-    const raw = typeof fotoItem === 'object' && fotoItem !== null ? (fotoItem.url_fotografia || fotoItem.url) : fotoItem;
-    fotoOriginalUrl = obtenerUrlImagen(raw as string);
-  }
-
-  // Obtener evidencia enviada por supervisor
-  const fotoEvidenciaSupervisorUrl = item.evidencia 
-    ? obtenerUrlImagen(item.evidencia.url_foto || item.evidencia.url) 
-    : null;
-
-  // Lógica segura para formatear la Ubicación como String
-  let ubicacionTexto = 'No especificada';
-  let googleMapsUrl = null;
-
-  const obsUbic = item.ubicacion_observacion;
-  if (obsUbic && typeof obsUbic === 'object') {
-    const lat = obsUbic.latitud;
-    const lon = obsUbic.longitud;
-    const dir = obsUbic.direccion;
-
-    if (dir && typeof dir === 'string' && dir !== 'Terreno GPS') {
-      ubicacionTexto = dir;
-    } else if (lat && lon) {
-      ubicacionTexto = `Lat: ${lat}, Lng: ${lon}`;
-      googleMapsUrl = `https://www.google.com/maps?q=${lat},${lon}`;
-    }
-  } else if (typeof obsUbic === 'string') {
-    ubicacionTexto = obsUbic;
-  } else if (typeof item.direccion === 'string') {
-    ubicacionTexto = item.direccion;
-  } else if (typeof item.ubicacion === 'string') {
-    ubicacionTexto = item.ubicacion;
-  }
+  const nombreCreador = 
+    parseUserField(ticketData.creado_por) || 
+    parseUserField(ticketData.fiscalizador) || 
+    parseUserField(ticketData.usuario_creacion) || 
+    parseUserField(ticketData.usuario) || 
+    parseUserField(ticketData.inspector) || 
+    ticketData.nombre_fiscalizador || 
+    ticketData.nombre_inspector || 
+    (ticketData.id_observacion ? `Observación de Terreno #${ticketData.id_observacion}` : 'Fiscalizador Municipal');
 
   return (
-    <div className={styles.container}>
-      <button onClick={() => navigate('/bandeja-municipal')} className={styles.backButton}>
-        ← Volver a Bandeja Municipal
-      </button>
+    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1.5rem' }}>
+      <TicketHeader 
+        idTicket={Number(ticketData.id_ticket)} 
+        codConsultaExterna={String(ticketData.cod_consulta_externa || '')} 
+      />
 
-      <div className={styles.cardDetail}>
-        <div className={styles.headerRow}>
-          <h1>{esObservacion ? `Observación Terreno #${realIdDisplay}` : `Ticket Oficial #${realIdDisplay}`}</h1>
-          <span className={styles.badge}>{estadoActual}</span>
-        </div>
+      <TicketInfoCard ticketData={ticketData} />
 
-        {/* FOTO EVIDENCIA ORIGINAL */}
-        <h3 style={{ marginTop: '1.5rem', color: '#1e293b' }}>Fotografía del Inspector (Terreno)</h3>
-        {fotoOriginalUrl ? (
-          <div className={styles.imageContainer} onClick={() => setIsModalOpen(true)}>
-            <img src={fotoOriginalUrl} alt={`Original ${realIdDisplay}`} className={styles.image} />
-          </div>
-        ) : (
-          <div className={styles.imagePlaceholder}>
-            <p>Sin fotografía de evidencia adjunta</p>
-          </div>
-        )}
-
-        {isModalOpen && fotoOriginalUrl && (
-          <div className={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
-            <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-              <button className={styles.closeButton} onClick={() => setIsModalOpen(false)}>&times;</button>
-              <img src={fotoOriginalUrl} alt="Ampliada" className={styles.modalImage} />
-            </div>
-          </div>
-        )}
-
-        <div className={styles.infoGrid}>
-          <div className={styles.infoItem}>
-            <label>N° Registro</label>
-            <p>#{realIdDisplay}</p>
-          </div>
-          <div className={styles.infoItem}>
-            <label>Ubicación / Coordenadas GPS</label>
-            <p>{ubicacionTexto}</p>
-            {googleMapsUrl && (
-              <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8rem', color: '#2563eb', textDecoration: 'underline', marginTop: '4px', display: 'inline-block' }}>
-                Ver en Google Maps ↗
-              </a>
-            )}
-          </div>
-          <div className={styles.infoItem}>
-            <label>Fecha de Registro</label>
-            <p>{item.fecha_registro || item.fecha || 'Sin fecha'}</p>
-          </div>
-        </div>
-
-        <div className={styles.descriptionBox}>
-          <label>Descripción del Inspector</label>
-          <p>{item.descripcion || 'Sin descripción.'}</p>
-        </div>
-
-        {/* SI ES UNA OBSERVACIÓN PENDIENTE: FORMULARIO PARA CREAR TICKET */}
-        {esObservacion ? (
-          <form onSubmit={handleCrearTicket} style={{ marginTop: '2.5rem', borderTop: '2px solid #e2e8f0', paddingTop: '1.5rem', background: '#f8fafc', padding: '1.5rem', borderRadius: '8px' }}>
-            <h3 style={{ color: '#0f172a', marginTop: 0, marginBottom: '1rem' }}>Generar Ticket Oficial de Subsanación</h3>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.4rem' }}>Empresa Asignada</label>
-                <select value={idEmpresa} onChange={(e) => setIdEmpresa(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                  <option value="1">Empresa Contratista A</option>
-                  <option value="2">Empresa Contratista B</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.4rem' }}>Área de Gestión</label>
-                <select value={idArea} onChange={(e) => setIdArea(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                  <option value="1">Obras Públicas / Vías</option>
-                  <option value="2">Aseo y Ornato</option>
-                  <option value="3">Alumbrado Público</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.4rem' }}>Prioridad</label>
-                <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                  <option value="Alta">Alta</option>
-                  <option value="Media">Media</option>
-                  <option value="Baja">Baja</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.4rem' }}>Días de Plazo</label>
-                <input 
-                  type="number" 
-                  min="1" 
-                  max="30" 
-                  value={diasPlazo} 
-                  onChange={(e) => setDiasPlazo(Number(e.target.value))} 
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.4rem' }}>Instrucciones para el Supervisor</label>
-              <textarea 
-                rows={3} 
-                value={instruccionesTicket} 
-                onChange={(e) => setInstruccionesTicket(e.target.value)} 
-                required 
-                style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-              />
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={procesando} 
-              style={{ background: '#2563eb', color: '#fff', padding: '0.75rem 1.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
-            >
-              {procesando ? 'Generando Ticket...' : '✓ Aprobar y Convertir a Ticket Oficial'}
-            </button>
-          </form>
-        ) : (
-          /* SI YA ES UN TICKET OFICIAL: MOSTRAR EVIDENCIA Y ACCIONES MUNICIPALES */
-          <div style={{ marginTop: '2.5rem', borderTop: '2px solid #e2e8f0', paddingTop: '1.5rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: '#1e293b' }}>Evidencia de Subsanación (Supervisor / Empresa)</h3>
-
-            {item.evidencia ? (
-              <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                {fotoEvidenciaSupervisorUrl && (
-                  <div className={styles.imageContainer} onClick={() => setIsModalEvidenciaOpen(true)} style={{ maxWidth: '400px', marginBottom: '1rem' }}>
-                    <img src={fotoEvidenciaSupervisorUrl} alt="Evidencia Subsanación" className={styles.image} />
-                  </div>
-                )}
-
-                {isModalEvidenciaOpen && fotoEvidenciaSupervisorUrl && (
-                  <div className={styles.modalOverlay} onClick={() => setIsModalEvidenciaOpen(false)}>
-                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-                      <button className={styles.closeButton} onClick={() => setIsModalEvidenciaOpen(false)}>&times;</button>
-                      <img src={fotoEvidenciaSupervisorUrl} alt="Evidencia Subsanación Ampliada" className={styles.modalImage} />
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label style={{ fontWeight: 600, display: 'block', fontSize: '0.85rem', color: '#475569' }}>Descripción de los Trabajos Realizados:</label>
-                  <p style={{ marginTop: '4px', color: '#1e293b' }}>{item.evidencia.descripcion_solucion || 'Sin detalle'}</p>
-                </div>
-
-                <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
-                  <button onClick={handleAprobar} disabled={procesando} style={{ background: '#16a34a', color: '#fff', padding: '0.75rem 1.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>
-                    {procesando ? 'Procesando...' : '✓ Aprobar y Cerrar Ticket'}
-                  </button>
-
-                  <button onClick={() => setMostrarModalRechazo(true)} disabled={procesando} style={{ background: '#dc2626', color: '#fff', padding: '0.75rem 1.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>
-                    ✕ Rechazar y Devolver
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ padding: '1rem', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '6px', color: '#92400e' }}>
-                <p>El supervisor aún no ha enviado evidencia de subsanación para este ticket.</p>
-              </div>
-            )}
-
-            {mostrarModalRechazo && (
-              <form onSubmit={handleRechazar} style={{ marginTop: '1.5rem', padding: '1.5rem', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px' }}>
-                <h4 style={{ color: '#991b1b', marginTop: 0 }}>Motivo del Rechazo / Devolución</h4>
-                <textarea
-                  rows={3}
-                  value={motivoRechazo}
-                  onChange={(e) => setMotivoRechazo(e.target.value)}
-                  placeholder="Detalla qué correcciones debe realizar el supervisor..."
-                  required
-                  style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '1rem' }}
-                />
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <button type="submit" disabled={procesando} style={{ background: '#dc2626', color: '#fff', padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>
-                    Confirmar Devolución
-                  </button>
-                  <button type="button" onClick={() => setMostrarModalRechazo(false)} style={{ background: '#64748b', color: '#fff', padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
-                    Cancelar
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        )}
+      {/* Información del Creador / Fiscalizador */}
+      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: '16px 20px', borderRadius: '8px', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+        <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+          Creado por / Fiscalizador
+        </span>
+        <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1e293b' }}>
+          {nombreCreador}
+        </span>
       </div>
+
+      {/* Fotografías de la Observación Inicial */}
+      {ticketData.fotografias && ticketData.fotografias.length > 0 && (
+        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: '20px', borderRadius: '8px', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1e293b', marginTop: 0, marginBottom: '12px', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
+            Fotografía Adjunta de la Observación Inicial
+          </h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+            {ticketData.fotografias.map((foto, index) => {
+              const fotoUrl = foto.startsWith('http') ? foto : `${API_BASE_URL}${foto.startsWith('/') ? '' : '/'}${foto}`;
+              return (
+                <div key={index} style={{ border: '1px solid #cbd5e1', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc' }}>
+                  <a href={fotoUrl} target="_blank" rel="noopener noreferrer">
+                    <img 
+                      src={fotoUrl} 
+                      alt={`Evidencia inicial ${index + 1}`} 
+                      style={{ maxWidth: '280px', maxHeight: '200px', objectFit: 'cover', display: 'block' }} 
+                    />
+                  </a>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {ticketData.evidencia && (
+        <EvidenciaViewer evidencia={ticketData.evidencia} baseUrl={API_BASE_URL} />
+      )}
+
+      <AuditActionsForm 
+        estado={String(ticketData.estado || '')} 
+        onAuditar={handleAuditar} 
+        submitting={submitting} 
+      />
     </div>
   );
 };

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getObservations } from '../../services/api';
 import styles from './BandejaMunicipal.module.css';
 
 interface Ubicacion {
@@ -13,6 +12,7 @@ interface ItemBandeja {
   id?: number;
   id_observacion?: number;
   id_ticket?: number;
+  cod_consulta_externa?: string;
   titulo?: string;
   nombre?: string;
   descripcion?: string;
@@ -22,14 +22,13 @@ interface ItemBandeja {
   estado?: string;
   fecha?: string;
   fecha_registro?: string;
+  prioridad?: string;
+  area_asignada?: string;
 }
 
 const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_BASE_URL = rawApiUrl.replace(/\/api\/?$/, '');
 
-/**
- * Función helper para verificar si el usuario logueado es Supervisor / Empresa
- */
 const checkIsSupervisor = (): boolean => {
   const role = (localStorage.getItem('role') || localStorage.getItem('user_role') || localStorage.getItem('userRole') || '').toLowerCase();
   const userType = (localStorage.getItem('user_type') || localStorage.getItem('tipo_usuario') || '').toLowerCase();
@@ -60,7 +59,7 @@ const checkIsSupervisor = (): boolean => {
         }
       }
     }
-  } catch (e) {
+  } catch {
     // Si falla el parseo
   }
 
@@ -81,32 +80,39 @@ export const BandejaMunicipal: React.FC = () => {
       setError(null);
 
       try {
-        if (isSupervisor) {
-          // SUPERVISOR: Carga sus tickets/subsanaciones asignadas
-          const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-          const headers: HeadersInit = {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          };
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        };
 
-          const res = await fetch(`${API_BASE_URL}/api/tickets/supervisor/`, { headers });
-          if (!res.ok) throw new Error('No se pudieron obtener las subsanaciones asignadas');
-          const data = await res.json();
-          setItems(Array.isArray(data) ? data : data.results || []);
+        // Obtenemos los tickets oficiales activos desde el backend[cite: 4]
+        const res = await fetch(`${API_BASE_URL}/api/tickets/supervisor/`, { headers });
+        if (!res.ok) throw new Error('No se pudieron obtener los tickets del sistema');
+        
+        const data = await res.json();
+        const listaTickets = Array.isArray(data) ? data : data.results || [];
+        
+        // Excluimos tickets cerrados o resueltos para mostrar solo los activos en el panel[cite: 4]
+        const ticketsActivos = listaTickets.filter((tk: ItemBandeja) => {
+          const estadoLower = String(tk.estado || '').toLowerCase().trim();
+          return estadoLower !== 'cerrado' && estadoLower !== 'resuelto';
+        });
+
+        setItems(ticketsActivos);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
         } else {
-          // MUNICIPAL / ADMIN: Carga las observaciones ingresadas por inspectores para aprobación
-          const data = await getObservations();
-          setItems(data || []);
+          setError('Error al conectar con el servidor');
         }
-      } catch (err: any) {
-        setError(err.message || 'Error al conectar con el servidor');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [isSupervisor]);
+  }, []);
 
   const renderUbicacion = (ubicacionObs?: string | Ubicacion, ubicacionAlt?: string) => {
     if (ubicacionObs) {
@@ -121,32 +127,31 @@ export const BandejaMunicipal: React.FC = () => {
     return ubicacionAlt || 'Sin dirección registrada';
   };
 
-  // Filtrar exclusivamente los pendientes
+  // Cálculo de KPIs basados en los tickets activos[cite: 4]
+  const totalRegistros = items.length;
   const pendientes = items.filter(
     (item) => !item.estado || item.estado.toLowerCase() === 'pendiente' || item.estado.toLowerCase() === 'abierto'
   );
+  const enRevision = items.filter(
+    (item) => item.estado && (item.estado.toLowerCase() === 'en revisión' || item.estado.toLowerCase() === 'en proceso' || item.estado.toLowerCase() === 'subsanado')
+  );
 
-  const totalRegistros = items.length;
   const pendientesCount = pendientes.length;
-  const atendidasCount = totalRegistros - pendientesCount;
+  const revisionCount = enRevision.length;
 
-  // Tomar únicamente los últimos 5 pendientes ordenados descendentemente
-  const ultimasPendientes = [...pendientes]
+  const ultimosItems = [...items]
     .sort((a, b) => {
-      const idA = a.id_observacion ?? a.id_ticket ?? a.id ?? 0;
-      const idB = b.id_observacion ?? b.id_ticket ?? b.id ?? 0;
+      const idA = a.id_ticket ?? a.id ?? 0;
+      const idB = b.id_ticket ?? b.id ?? 0;
       return idB - idA;
     })
     .slice(0, 5);
 
   const handleNavegarDetalle = (item: ItemBandeja) => {
-    const realId = item.id_observacion ?? item.id_ticket ?? item.id;
-
+    const realId = item.id_ticket ?? item.id;
     if (isSupervisor) {
-      // Redirige a la gestión de subsanaciones del supervisor
       navigate(`/subsanacion/${realId}`);
     } else {
-      // Redirige al usuario municipal para aprobar y generar el Ticket Oficial
       navigate(`/detalle-ticket/${realId}`);
     }
   };
@@ -161,38 +166,34 @@ export const BandejaMunicipal: React.FC = () => {
         <p>Resumen general de estado e indicadores de fiscalización</p>
       </header>
 
-      {/* Tarjetas KPI */}
       <div className={styles.kpiGrid}>
         <div className={`${styles.kpiCard} ${styles.kpiTotal}`}>
-          <h3>Total de Registros</h3>
+          <h3>Total Activos</h3>
           <p className={styles.kpiNumber}>{totalRegistros}</p>
-          <span className={styles.kpiSubtitle}>
-            {isSupervisor ? 'Subsanaciones asignadas' : 'Observaciones ingresadas'}
-          </span>
+          <span className={styles.kpiSubtitle}>Tickets oficiales en curso</span>
         </div>
 
         <div className={`${styles.kpiCard} ${styles.kpiPending}`}>
-          <h3>Pendientes</h3>
+          <h3>Pendientes / Abiertos</h3>
           <p className={styles.kpiNumber}>{pendientesCount}</p>
-          <span className={styles.kpiSubtitle}>Requieren atención</span>
+          <span className={styles.kpiSubtitle}>Requieren atención inicial</span>
         </div>
 
         <div className={`${styles.kpiCard} ${styles.kpiCompleted}`}>
-          <h3>Atendidas / Resueltas</h3>
-          <p className={styles.kpiNumber}>{atendidasCount}</p>
-          <span className={styles.kpiSubtitle}>Procesadas con éxito</span>
+          <h3>En Revisión / Proceso</h3>
+          <p className={styles.kpiNumber}>{revisionCount}</p>
+          <span className={styles.kpiSubtitle}>Evidencia enviada / auditando</span>
         </div>
       </div>
 
-      {/* Sección del listado dinámico */}
       <div className={styles.recentSection}>
-        <h2>{isSupervisor ? 'Últimas 5 Subsanaciones Pendientes' : 'Últimas 5 Observaciones Pendientes de Conversión'}</h2>
-        {ultimasPendientes.length === 0 ? (
-          <p className={styles.emptyText}>No hay registros pendientes en este momento.</p>
+        <h2>Últimos Tickets Activos</h2>
+        {ultimosItems.length === 0 ? (
+          <p className={styles.emptyText}>No hay registros activos en este momento.</p>
         ) : (
           <ul className={styles.recentList}>
-            {ultimasPendientes.map((item, index) => {
-              const itemId = item.id_observacion ?? item.id_ticket ?? item.id ?? (index + 1);
+            {ultimosItems.map((item, index) => {
+              const itemId = item.cod_consulta_externa || item.id_ticket || item.id || (index + 1);
               const itemKey = `item-${itemId}-${index}`;
               const direccionStr = renderUbicacion(item.ubicacion_observacion, item.ubicacion);
               const tituloOTexto = item.titulo || item.nombre || item.descripcion || item.observacion || 'Sin descripción';
@@ -204,7 +205,7 @@ export const BandejaMunicipal: React.FC = () => {
                     <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '4px 0 0 0' }}>{direccionStr}</p>
                   </div>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <span className={styles.badge}>{item.estado || 'Pendiente'}</span>
+                    <span className={styles.badge}>{item.estado || 'Abierto'}</span>
                     <button 
                       onClick={() => handleNavegarDetalle(item)}
                       style={{ padding: '0.5rem 1rem', background: '#01497c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}

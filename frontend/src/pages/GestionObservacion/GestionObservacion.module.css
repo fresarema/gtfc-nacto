@@ -1,0 +1,190 @@
+.container {
+  margin-left: 260px;
+  padding: 30px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  margin-bottom: 20px;
+  font-weight: 600;
+  padding: 0;
+}
+
+.title {
+  margin: 0 0 5px 0;
+  color: #0f172a;
+}
+
+.badge {
+  display: inline-block;
+  background: #fef3c7;
+  color: #d97706;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.cardTitle {
+  margin-top: 0;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 10px;
+}
+
+.userBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 12px;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.avatar {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background-color: #cbd5e1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #475569;
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.userInfoLabel {
+  display: block;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.userInfoName {
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.fieldParagraph {
+  margin: 12px 0;
+}
+
+.photosSection {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.photosLabel {
+  display: block;
+  margin-bottom: 10px;
+  color: #334155;
+}
+
+.noPhotos {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.photosContainer {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.photoWrapper {
+  width: 180px;
+  height: 140px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  background-color: #f1f5f9;
+}
+
+.photoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.formTitle {
+  margin-top: 0;
+  color: #0369a1;
+}
+
+.formSubtitle {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.formLabel {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.formInput,
+.formTextarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  box-sizing: border-box;
+}
+
+.submitButton {
+  width: 100%;
+  padding: 12px;
+  background-color: #0369a1;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mapsLink {
+  color: #2563eb;
+  text-decoration: underline;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mapsLinkSpan {
+  font-size: 0.8rem;
+}

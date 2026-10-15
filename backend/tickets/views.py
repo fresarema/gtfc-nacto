@@ -66,7 +66,8 @@ def user_profile_view(request):
 def observaciones_view(request):
     if request.method == 'GET':
         try:
-            observaciones_pendientes = ObservacionTerreno.objects.filter(estado='Pendiente')
+            # Uso de __iexact para ignorar mayúsculas/minúsculas
+            observaciones_pendientes = ObservacionTerreno.objects.filter(estado__iexact='Pendiente')
             
             data = []
             for obs in observaciones_pendientes:
@@ -470,13 +471,11 @@ def detalle_ticket_view(request, id_ticket):
             "descripcion": tk.descripcion,
             "descripcion_ticket": tk.descripcion,
             "estado": tk.estado,
-            "motivo_rechazo": motivo_rechazo,  # <-- NUEVO CAMPO ENVIADO AL FRONTEND
+            "motivo_rechazo": motivo_rechazo,
             "fecha_registro": tk.id_observacion.fecha_registro if tk.id_observacion else None,
             "fotografias": [foto_original] if foto_original else [],
             "evidencia": evidencia_data,
-            "ubicacion_observacion": {
-                "direccion": tk.id_observacion.ubicacion_observacion if tk.id_observacion else None
-            } if tk.id_observacion else None
+            "ubicacion_observacion": tk.id_observacion.ubicacion_observacion if tk.id_observacion else "Sin dirección registrada"
         }
 
         return Response(data, status=status.HTTP_200_OK)
@@ -547,3 +546,4 @@ def registrar_usuario(request):
         return Response({"error": "La empresa especificada no existe en la base de datos."}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

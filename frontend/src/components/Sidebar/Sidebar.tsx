@@ -2,15 +2,46 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import styles from './Sidebar.module.css';
 
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = rawApiUrl.replace(/\/api\/?$/, '');
+
 export const Sidebar: React.FC = () => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>('');
+  const [loadingRole, setLoadingRole] = useState<boolean>(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Obtenemos el rol guardado al iniciar sesión
-    const role = localStorage.getItem('role') || '';
-    setUserRole(role.toLowerCase());
+    const fetchUserRole = async () => {
+      try {
+        setLoadingRole(true);
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+        
+        if (token) {
+          const headers: HeadersInit = {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          };
+          const res = await fetch(`${API_BASE_URL}/api/auth/profile/`, { headers });
+          if (res.ok) {
+            const perfil = await res.json();
+            const rolApi = perfil.rol || perfil.role || perfil.tipo || perfil.tipo_usuario || '';
+            setUserRole(String(rolApi).toLowerCase().trim());
+            setLoadingRole(false);
+            return;
+          }
+        }
+
+        const roleStorage = localStorage.getItem('role') || localStorage.getItem('rol') || '';
+        setUserRole(roleStorage.toLowerCase().trim());
+      } catch (err) {
+        console.error("Error al obtener el rol en Sidebar:", err);
+      } finally {
+        setLoadingRole(false);
+      }
+    };
+
+    fetchUserRole();
   }, []);
 
   const toggleMenu = () => setIsOpen(!isOpen);
@@ -21,8 +52,13 @@ export const Sidebar: React.FC = () => {
     navigate('/login', { replace: true });
   };
 
-  // Verificamos si es supervisor (puedes ajustar el nombre según backend, ej: 'supervisor', 'empresa', etc.)
-  const isSupervisor = userRole === 'supervisor' || userRole === 'empresa';
+  const isSupervisor = 
+    userRole.includes('supervisor') || 
+    userRole.includes('extern') || 
+    userRole.includes('contratist') ||
+    userRole.includes('empresa');
+
+  const isAdmin = userRole.includes('administrador') || userRole.includes('admin');
 
   return (
     <>
@@ -46,37 +82,58 @@ export const Sidebar: React.FC = () => {
         </div>
 
         <nav className={styles.nav}>
-          {/* Opciones exclusivas para personal municipal / administrativo (Ocultas para Supervisor) */}
-          {!isSupervisor && (
+          {!loadingRole && (
             <>
+              {/* 🟢 Habilitado tanto para personal municipal como para el supervisor */}
               <NavLink 
                 to="/bandeja-municipal" 
                 className={({ isActive }) => isActive ? `${styles.link} ${styles.activeLink}` : styles.link}
                 onClick={closeMenu}
               >
-                Bandeja Municipal
+                {isSupervisor ? 'Panel de Control' : 'Bandeja Municipal'}
               </NavLink>
 
+              {/* NUEVA OPCIÓN: Conversión de Observaciones a Tickets (Exclusiva municipal) */}
+              {!isSupervisor && (
+                <NavLink 
+                  to="/observaciones-pendientes" 
+                  className={({ isActive }) => isActive ? `${styles.link} ${styles.activeLink}` : styles.link}
+                  onClick={closeMenu}
+                >
+                  Observaciones a Tickets
+                </NavLink>
+              )}
+
+              {/* Opción de Subsanación */}
+              <NavLink 
+                to="/subsanacion" 
+                className={({ isActive }) => isActive ? `${styles.link} ${styles.activeLink}` : styles.link}
+                onClick={closeMenu}
+              >
+                Subsanación de Tickets
+              </NavLink>
+
+              {!isSupervisor && (
+                <NavLink 
+                  to="/historial-tickets" 
+                  className={({ isActive }) => isActive ? `${styles.link} ${styles.activeLink}` : styles.link}
+                  onClick={closeMenu}
+                >
+                  Historial de Tickets
+                </NavLink>
+              )}
+
+              {/* Opción exclusiva para el rol de Administrador */}
+              {isAdmin && (
+                <NavLink 
+                  to="/crear-usuario" 
+                  className={({ isActive }) => isActive ? `${styles.link} ${styles.activeLink}` : styles.link}
+                  onClick={closeMenu}
+                >
+                  Crear Usuario
+                </NavLink>
+              )}
             </>
-          )}
-
-          {/* Opción permitida para el Supervisor: Subsanación */}
-          <NavLink 
-            to="/subsanacion" 
-            className={({ isActive }) => isActive ? `${styles.link} ${styles.activeLink}` : styles.link}
-            onClick={closeMenu}
-          >
-            Subsanación de Tickets
-          </NavLink>
-
-          {!isSupervisor && (
-            <NavLink 
-              to="/historial-tickets" 
-              className={({ isActive }) => isActive ? `${styles.link} ${styles.activeLink}` : styles.link}
-              onClick={closeMenu}
-            >
-              Historial de Tickets
-            </NavLink>
           )}
         </nav>
 

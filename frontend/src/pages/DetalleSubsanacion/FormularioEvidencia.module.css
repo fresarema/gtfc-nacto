@@ -1,0 +1,112 @@
+/* Contenedor principal del formulario */
+.formContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  background-color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border-top: 2px solid #e2e8f0;
+  margin-top: 20px;
+  box-sizing: border-box;
+}
+
+.title {
+  margin: 0 0 0.5rem 0;
+  color: #1e293b;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+/* Grupo interno para cada campo */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5srem;
+  width: 100%;
+}
+
+.label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* Área de texto */
+.textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #1e293b;
+  background-color: #f8fafc;
+  outline: none;
+  resize: vertical;
+  box-sizing: border-box;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.textarea:focus {
+  border-color: #01497c;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(1, 73, 124, 0.1);
+}
+
+/* Input de archivos */
+.fileInput {
+  display: block;
+  width: 100%;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  color: #475569;
+  background-color: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.fileInput::file-selector-button {
+  padding: 0.5rem 1rem;
+  margin-right: 1rem;
+  background-color: #e2e8f0;
+  color: #1e293b;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.fileInput::file-selector-button:hover {
+  background-color: #cbd5e1;
+}
+
+/* Botón de envío */
+.submitButton {
+  align-self: flex-start;
+  padding: 0.75rem 1.75rem;
+  background-color: #01497c;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.submitButton:hover:not(:disabled) {
+  background-color: #013a63;
+}
+
+.submitButton:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.7;
+}

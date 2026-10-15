@@ -25,7 +25,7 @@ export const Login: React.FC = () => {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Credenciales inválidas o error en el servidor');
+        throw new Error(typeof errData === 'object' && errData !== null && 'error' in errData ? String((errData as { error: unknown }).error) : 'Credenciales inválidas o error en el servidor');
       }
 
       const data = await response.json();
@@ -43,8 +43,12 @@ export const Login: React.FC = () => {
         navigate('/home', { replace: true });
       }
 
-    } catch (err: any) {
-      setError(err.message || 'Ocurrió un error al iniciar sesión');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Ocurrió un error al iniciar sesión');
+      }
     } finally {
       setLoading(false);
     }

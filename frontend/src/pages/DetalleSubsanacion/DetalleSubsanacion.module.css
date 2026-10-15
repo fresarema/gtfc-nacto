@@ -1,5 +1,5 @@
 .container {
-  margin-left: 260px; /* Deja espacio para el Sidebar en escritorio */
+  margin-left: 260px;
   padding: 30px;
   background-color: #f8fafc;
   min-height: 100vh;
@@ -11,27 +11,23 @@
   background: none;
   border: none;
   color: #2563eb;
-  font-weight: 600;
-  font-size: 1rem;
   cursor: pointer;
   margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  font-weight: 600;
+  padding: 0;
+  font-size: 0.95rem;
 }
 
 .backButton:hover {
   text-decoration: underline;
 }
 
-.cardDetail {
+.card {
   background: white;
   border-radius: 12px;
   padding: 30px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  max-width: 800px;
-  width: 100%;
-  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
 }
 
 .headerRow {
@@ -39,92 +35,105 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 10px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 15px;
 }
 
-.cardDetail h1 {
-  font-size: 1.5rem;
-  color: #1e293b;
+.headerRow h2 {
   margin: 0;
+  color: #1e293b;
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .badge {
-  background-color: #dbeafe;
-  color: #1d4ed8;
-  padding: 6px 12px;
+  padding: 6px 14px;
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background-color: #fef3c7;
+  color: #d97706;
 }
 
-.infoGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 1rem;
+.badge.abierto, .badge.pendiente {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.badge.en_revision {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.badge.cerrado {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.badge.rechazado {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.motivoRechazoBox {
+  background-color: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-left: 4px solid #e11d48;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  color: #9f1239;
+}
+
+.infoBox {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.infoLabel {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.infoText {
   color: #334155;
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.evidenciaBox {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 20px;
+  border-radius: 8px;
   margin-bottom: 24px;
-  border-bottom: 1px solid #f1f5f9;
-  padding-bottom: 20px;
 }
 
-.formGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.label {
-  font-weight: 600;
-  color: #1e293b;
-  font-size: 0.95rem;
-}
-
-.textarea {
-  width: 100%;
-  padding: 12px;
+.evidenciaImg {
+  max-width: 300px;
+  max-height: 220px;
+  border-radius: 8px;
   border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  min-height: 100px;
-  box-sizing: border-box;
-  font-family: inherit;
-  font-size: 0.95rem;
-  resize: vertical;
-}
-
-.fileInput {
-  padding: 10px 0;
-  font-size: 0.95rem;
-}
-
-.submitButton {
-  background-color: #10b981;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  object-fit: cover;
   margin-top: 10px;
+  margin-bottom: 12px;
+  display: block;
 }
 
-.submitButton:hover {
-  background-color: #059669;
-}
-
-/* ==========================================
-   📱 ADAPTACIÓN MÓVIL (< 768px)
-   ================================---------- */
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .container {
-    margin-left: 0; /* Ocupa todo el ancho cuando el sidebar es flotante/oculto */
+    margin-left: 0;
     padding: 20px 15px;
-    padding-top: 70px; /* Deja espacio para el botón hamburguesa */
-  }
-
-  .cardDetail {
-    padding: 20px;
+    padding-top: 70px;
   }
 }

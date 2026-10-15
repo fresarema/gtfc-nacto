@@ -23,7 +23,7 @@ export const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
       const decodedPayload = JSON.parse(atob(payloadBase64));
       jwtRole = (decodedPayload.role || decodedPayload.user_type || decodedPayload.tipo_usuario || decodedPayload.rol || "").toLowerCase();
     }
-  } catch (e) {
+  } catch {
     // Si falla el token
   }
 
