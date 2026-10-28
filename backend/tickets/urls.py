@@ -12,5 +12,7 @@ urlpatterns = [
     path('tickets/auditar/<int:id_ticket>/', views.auditar_ticket_municipal, name='auditar_ticket'),
     path('usuarios/registrar/', views.registrar_usuario, name='registrar_usuario'),
     path('tickets/<int:id_ticket>/', views.detalle_ticket_view, name='detalle_ticket'),
+    path('empresas/crear/', views.crear_empresa, name='crear_empresa'),
+    path('tickets/consulta/<str:codigo>/', views.consulta_externa_ticket, name='consulta_externa_ticket'),
     
 ]

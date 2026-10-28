@@ -2,8 +2,16 @@ from django.db import models
 
 class Empresa(models.Model):
     id_empresa = models.AutoField(primary_key=True)
-    nombre_empresa = models.CharField(max_length=200)
+    razon_social = models.CharField(max_length=200) # Reemplaza a nombre_empresa
     rut_empresa = models.CharField(max_length=12)
+    direccion_comercial = models.CharField(max_length=255, null=True, blank=True)
+    direccion_base_nacimiento = models.CharField(max_length=255, null=True, blank=True)
+    nombre_admin_contrato = models.CharField(max_length=100, null=True, blank=True)
+    email_admin_contrato = models.EmailField(null=True, blank=True)
+    telefono_admin_contrato = models.CharField(max_length=20, null=True, blank=True)
+    nombre_supervisor = models.CharField(max_length=100, null=True, blank=True)
+    email_supervisor = models.EmailField(null=True, blank=True)
+    telefono_supervisor = models.CharField(max_length=20, null=True, blank=True)
 
     class Meta:
         db_table = 'empresa'
@@ -31,6 +39,7 @@ class Usuario(models.Model):
 class ObservacionTerreno(models.Model):
     id_observacion = models.AutoField(primary_key=True)
     id_fiscalizador = models.ForeignKey(Usuario, on_delete=models.RESTRICT, db_column='id_fiscalizador')
+    id_empresa = models.ForeignKey(Empresa, on_delete=models.SET_NULL, null=True, blank=True, db_column='id_empresa')
     fecha_registro = models.DateField(auto_now_add=True)
     hora_registro = models.TimeField(auto_now_add=True)
     descripcion = models.TextField()
@@ -65,6 +74,8 @@ class Ticket(models.Model):
     hora_creacion = models.TimeField(auto_now_add=True)
     fecha_vencimiento = models.DateField(null=True, blank=True)
     hora_vencimiento = models.TimeField(null=True, blank=True)
+    fecha_respuesta_supervisor = models.DateField(null=True, blank=True)
+    hora_respuesta_supervisor = models.TimeField(null=True, blank=True)
     estado = models.CharField(max_length=50, default='Abierto')
     cod_consulta_externa = models.CharField(max_length=50, unique=True)
 
@@ -84,3 +95,22 @@ class HistorialTicket(models.Model):
 
     class Meta:
         db_table = 'historial_ticket'
+
+class EvidenciaOperario(models.Model):
+    id_evidencia = models.AutoField(primary_key=True)
+    id_ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, db_column='id_ticket')
+    id_operario = models.ForeignKey(Usuario, on_delete=models.RESTRICT, db_column='id_operario')
+    fecha_registro = models.DateField(auto_now_add=True)
+    hora_registro = models.TimeField(auto_now_add=True)
+    descripcion = models.TextField()
+    
+    class Meta:
+        db_table = 'evidencia_operario'
+
+class FotografiaEvidencia(models.Model):
+    id_foto_evidencia = models.AutoField(primary_key=True)
+    id_evidencia = models.ForeignKey(EvidenciaOperario, on_delete=models.CASCADE, db_column='id_evidencia')
+    url_fotografia = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = 'fotografia_evidencia'

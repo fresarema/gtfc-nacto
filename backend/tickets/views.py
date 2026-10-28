@@ -1,7 +1,7 @@
 import base64
 import uuid
 import os
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime
 from django.conf import settings
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -300,6 +300,9 @@ def responder_ticket_supervisor(request, id_ticket):
             return Response({"error": "No tienes permiso para modificar este ticket."}, status=status.HTTP_403_FORBIDDEN)
 
         ticket.estado = nuevo_estado
+        ahora = datetime.now()
+        ticket.fecha_respuesta_supervisor = ahora.date()
+        ticket.hora_respuesta_supervisor = ahora.time()
         ticket.save()
 
         HistorialTicket.objects.create(
@@ -512,7 +515,7 @@ def registrar_usuario(request):
     if not all([nombre, apellido, email, password, rol]):
         return Response({"error": "Faltan datos obligatorios (nombre, apellido, email, password, rol)."}, status=status.HTTP_400_BAD_REQUEST)
 
-    roles_permitidos = ['Administrador', 'Usuario Municipal', 'Supervisor de Empresa Externa', 'Fiscalizador']
+    roles_permitidos = ['Administrador', 'Usuario Municipal', 'Supervisor de Empresa Externa', 'Fiscalizador', 'Operario de Empresa Externa']
     if rol not in roles_permitidos:
         return Response({"error": f"Rol inválido. Debe ser uno de: {roles_permitidos}"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -547,3 +550,56 @@ def registrar_usuario(request):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['POST'])
+def crear_empresa(request):
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({"error": "Token faltante."}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    try:
+        payload = signing.loads(auth_header.split(' ')[1])
+        creador = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
+        if creador.rol != 'Administrador':
+            return Response({"error": "Solo un Administrador puede crear empresas."}, status=status.HTTP_403_FORBIDDEN)
+    except (signing.BadSignature, Usuario.DoesNotExist):
+        return Response({"error": "Acceso denegado."}, status=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        nueva_empresa = Empresa.objects.create(
+            razon_social=request.data.get('razon_social'),
+            rut_empresa=request.data.get('rut_empresa'),
+            direccion_comercial=request.data.get('direccion_comercial'),
+            direccion_base_nacimiento=request.data.get('direccion_base_nacimiento'),
+            nombre_admin_contrato=request.data.get('nombre_admin_contrato'),
+            email_admin_contrato=request.data.get('email_admin_contrato'),
+            telefono_admin_contrato=request.data.get('telefono_admin_contrato'),
+            nombre_supervisor=request.data.get('nombre_supervisor'),
+            email_supervisor=request.data.get('email_supervisor'),
+            telefono_supervisor=request.data.get('telefono_supervisor')
+        )
+        return Response({"mensaje": "Empresa creada", "id_empresa": nueva_empresa.id_empresa}, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+def consulta_externa_ticket(request, codigo):
+    try:
+        # Busca el ticket usando el código único, no el ID autoincremental
+        ticket = Ticket.objects.get(cod_consulta_externa=codigo)
+        
+        # Obtener el historial público
+        historial_qs = HistorialTicket.objects.filter(id_ticket=ticket).order_by('-fecha_accion')
+        historial = [{"fecha": h.fecha_accion, "accion": h.tipo_accion} for h in historial_qs]
+
+        data = {
+            "codigo": ticket.cod_consulta_externa,
+            "estado": ticket.estado,
+            "prioridad": ticket.prioridad,
+            "descripcion": ticket.descripcion,
+            "fecha_creacion": ticket.fecha_creacion,
+            "empresa_asignada": ticket.id_empresa.razon_social if ticket.id_empresa else "No asignada",
+            "historial": historial
+        }
+        return Response(data, status=status.HTTP_200_OK)
+    except Ticket.DoesNotExist:
+        return Response({"error": "El código de ticket ingresado no existe."}, status=status.HTTP_404_NOT_FOUND)
