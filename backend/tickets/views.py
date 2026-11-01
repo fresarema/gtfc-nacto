@@ -603,3 +603,32 @@ def consulta_externa_ticket(request, codigo):
         return Response(data, status=status.HTTP_200_OK)
     except Ticket.DoesNotExist:
         return Response({"error": "El código de ticket ingresado no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['GET'])
+def listar_empresas(request):
+    #Validación de seguridad: Asegura que el fiscalizador esté logueado
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({"error": "Token de autorización faltante."}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    try:
+        #Valida que el token sea correcto 
+        signing.loads(auth_header.split(' ')[1])
+    except signing.BadSignature:
+        return Response({"error": "Token inválido."}, status=status.HTTP_401_UNAUTHORIZED)
+
+    #Consulta la base de datos y arma la respuesta
+    try:
+        empresas = Empresa.objects.all()
+        data = []
+        for emp in empresas:
+            data.append({
+                "id_empresa": emp.id_empresa,
+                "razon_social": emp.razon_social,
+                "rut_empresa": emp.rut_empresa
+            })
+            
+        return Response(data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
