@@ -1,13 +1,7 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import basicSsl from '@vitejs/plugin-basic-ssl';
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
 
+// https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-    basicSsl() // <-- Este plugin habilita HTTPS automáticamente
-  ],
-  server: {
-    host: true, // Expone el servidor a la red local (0.0.0.0)
-  }
-});
+  plugins: [react()],
+})

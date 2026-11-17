@@ -3,8 +3,9 @@ import uuid
 import os
 from datetime import timedelta, date, datetime
 from django.conf import settings
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from django.core.files.base import ContentFile
 from django.core import signing
@@ -91,15 +92,27 @@ def observaciones_view(request):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     elif request.method == 'POST':
+        # 1. Validación de seguridad mediante token Bearer y decodificación con signing
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return Response({"error": "Token de autorización faltante o formato incorrecto."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        token = auth_header.split(' ')[1]
+        try:
+            payload = signing.loads(token)
+            fiscalizador = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
+        except (signing.BadSignature, Usuario.DoesNotExist):
+            return Response({"error": "Token inválido o usuario no encontrado."}, status=status.HTTP_401_UNAUTHORIZED)
+
         descripcion = request.data.get('descripcion')
         ubicacion = request.data.get('ubicacion_observacion')
         foto_b64 = request.data.get('fotografia_b64')
 
-        fiscalizador = Usuario.objects.first()
-        if not fiscalizador:
-            return Response({"error": "No hay usuarios registrados"}, status=status.HTTP_400_BAD_REQUEST)
+        if not descripcion:
+            return Response({"error": "La descripción es obligatoria."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            # 2. Creación asociada estrictamente al fiscalizador autenticado actual
             observacion = ObservacionTerreno.objects.create(
                 id_fiscalizador=fiscalizador,
                 descripcion=descripcion,
@@ -132,7 +145,7 @@ def observaciones_view(request):
                 )
 
             return Response({
-                "mensaje": "Observación registrada",
+                "mensaje": "Observación registrada exitosamente",
                 "id_observacion": observacion.id_observacion,
                 "estado": observacion.estado
             }, status=status.HTTP_201_CREATED)
@@ -140,7 +153,45 @@ def observaciones_view(request):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['GET'])
+def mis_observaciones_fiscalizador_view(request):
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({"error": "Token de autorización faltante."}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    token = auth_header.split(' ')[1]
+    try:
+        payload = signing.loads(token)
+        usuario_actual = Usuario.objects.get(id_usuario=payload.get('id_usuario'))
+        
+    except (signing.BadSignature, Usuario.DoesNotExist):
+        return Response({"error": "Token inválido o usuario no encontrado."}, status=status.HTTP_401_UNAUTHORIZED)
 
+    try:
+        # Filtramos estrictamente por el fiscalizador logueado
+        mis_observaciones = ObservacionTerreno.objects.filter(id_fiscalizador=usuario_actual).order_by('-fecha_registro', '-hora_registro')
+        
+        data = []
+        for obs in mis_observaciones:
+            fotos = Fotografia.objects.filter(id_observacion=obs.id_observacion)
+            rutas_fotos = [foto.url_fotografia for foto in fotos]
+            
+            data.append({
+                "id": obs.id_observacion,
+                "id_observacion": obs.id_observacion,
+                "fecha_registro": obs.fecha_registro,
+                "hora_registro": obs.hora_registro.strftime('%H:%M:%S') if obs.hora_registro else None,
+                "descripcion": obs.descripcion,
+                "ubicacion_observacion": obs.ubicacion_observacion,
+                "estado": obs.estado,
+                "fotografias": rutas_fotos
+            })
+            
+        return Response(data, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
 @api_view(['POST'])
 def convertir_observacion_a_ticket(request):
     auth_header = request.headers.get('Authorization')
@@ -476,6 +527,7 @@ def detalle_ticket_view(request, id_ticket):
             "estado": tk.estado,
             "motivo_rechazo": motivo_rechazo,
             "fecha_registro": tk.id_observacion.fecha_registro if tk.id_observacion else None,
+            "fecha_vencimiento": tk.fecha_vencimiento.strftime("%Y-%m-%d") if tk.fecha_vencimiento else None,
             "fotografias": [foto_original] if foto_original else [],
             "evidencia": evidencia_data,
             "ubicacion_observacion": tk.id_observacion.ubicacion_observacion if tk.id_observacion else "Sin dirección registrada"
@@ -603,3 +655,32 @@ def consulta_externa_ticket(request, codigo):
         return Response(data, status=status.HTTP_200_OK)
     except Ticket.DoesNotExist:
         return Response({"error": "El código de ticket ingresado no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['GET'])
+def listar_empresas(request):
+    #Validación de seguridad: Asegura que el fiscalizador esté logueado
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({"error": "Token de autorización faltante."}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    try:
+        #Valida que el token sea correcto 
+        signing.loads(auth_header.split(' ')[1])
+    except signing.BadSignature:
+        return Response({"error": "Token inválido."}, status=status.HTTP_401_UNAUTHORIZED)
+
+    #Consulta la base de datos y arma la respuesta
+    try:
+        empresas = Empresa.objects.all()
+        data = []
+        for emp in empresas:
+            data.append({
+                "id_empresa": emp.id_empresa,
+                "razon_social": emp.razon_social,
+                "rut_empresa": emp.rut_empresa
+            })
+            
+        return Response(data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

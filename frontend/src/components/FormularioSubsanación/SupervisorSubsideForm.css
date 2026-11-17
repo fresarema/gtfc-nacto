@@ -1,0 +1,100 @@
+.supervisor-subsanar-section {
+  margin-top: 2.5rem;
+  padding: 2rem;
+  background: #f8fafc;
+  border-radius: 1rem;
+  border: 1px solid #cbd5e1;
+  box-sizing: border-box;
+}
+
+.supervisor-subsanar-section h3 {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  font-size: 1.25rem;
+  color: #0f172a;
+}
+
+.subsanar-form .form-group {
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.subsanar-form label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.subsanar-form textarea {
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #cbd5e1;
+  font-family: inherit;
+  font-size: 0.95rem;
+  outline: none;
+  background-color: #ffffff;
+  color: #0f172a; 
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.subsanar-form textarea::placeholder {
+  color: #94a3b8; 
+}
+
+.subsanar-form input[type="file"] {
+  font-size: 0.9rem;
+  color: #475569;
+  padding: 0.5rem 0;
+}
+
+.subsanar-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  justify-content: flex-end;
+}
+
+.btn-cancel {
+  padding: 0.75rem 1.5rem;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-cancel:hover {
+  background-color: #e2e8f0;
+}
+
+.btn-submit-subsanacion {
+  background-color: #0f172a;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.75rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-submit-subsanacion:hover {
+  background-color: #1e293b;
+}
+
+@media (max-width: 768px) {
+  .subsanar-actions {
+    flex-direction: column-reverse;
+  }
+  .btn-cancel,
+  .btn-submit-subsanacion {
+    width: 100%;
+    text-align: center;
+  }
+}

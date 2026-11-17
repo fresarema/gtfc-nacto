@@ -1,73 +1,118 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import Login from "./pages/Login/Login";
-import Home from "./pages/Home/Home";
-import CreateTicket from "./pages/CreateTicket/CreateTicket";
-import Profile from "./pages/Profile/Profile";
-import BandejaMunicipal from "./pages/BandejaMunicipal/BandejaMunicipal";
-import ProtectedRoute from "./components/ProtectedRoute";
-import MainLayout from "./components/MainLayout";
-import DetalleTicket from "./pages/DetalleTicket/DetalleTicket";
-import SubsanacionTickets from "./pages/SubsanacionTickets/SubsanacionTickets"; // Módulo de auditoría de tickets
-import ObservacionesATickets from "./pages/ObservacionesATickets/ObservacionesATickets"; // Módulo de conversión de observaciones
-import DetalleSubsanacion from "./pages/DetalleSubsanacion/DetalleSubsanacion";
-import HistorialTickets from "./pages/HistorialTickets/HistorialTickets";
-import CrearUsuario from "./pages/CrearUsuario/CrearUsuario";
-import GestionObservacion from "./pages/GestionObservacion/GestionObservacion";
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import LoginPage from './pages/Login/LoginPage';
+import DashboardPage from './pages/Dashboard/DashboardPage';
+import CreateObservationPage from './pages/CreateObservation/CreateObservationPage'; 
+import TicketDetailPage from './pages/TicketDetail/TicketDetailPage';
+import ObservacionesPendientesPage from './pages/Observaciones/ObservacionesPendientesPage';
+import TicketsCerradosPage from './pages/Tickets/TicketsCerradosPage';
+import ProtectedRoute from './components/ProtectedRoute';
+import CrearEmpresaPage from './pages/CrearEmpresa/CrearEmpresaPage';
+import CrearUsuarioPage from './pages/CrearUsuario/CrearUsuarioPage';
+import TicketsSupervisorPage from './pages/Tickets/TicketsSupervisorPage';
+import TicketsActivosPage from './pages/Tickets/TicketsActivosPage';
+import FiscalizadorHome from './pages/FiscalizadorHome/FiscalizadorHome';
+import FiscalizadorObservacionesPage from './pages/FiscalizadorObservacionesPage/FiscalizadorObservacionesPage';
+import CrearContratoPage from './pages/CrearContrato/CrearContratoPage';
 
-function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        {/* Ruta pública de acceso */}
-        <Route path="/login" element={<Login />} />
+function NonFiscalizadorRoute() {
+  const userDataString = localStorage.getItem('user_data');
+  const userData = userDataString ? JSON.parse(userDataString) : null;
+  const rol = userData?.rol?.toLowerCase() || '';
 
-        {/* Ruta general autenticada */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/home" element={<Home />} />
-          <Route path="/profile" element={<Profile />} />
-        </Route>
+  if (rol.includes('fiscalizador')) {
+    return <Navigate to="/fiscalizador" replace />;
+  }
 
-        {/* Rutas exclusivas para Fiscalizadores */}
-        <Route element={<ProtectedRoute allowedRoles={['fiscalizador']} />}>
-          <Route path="/create-ticket" element={<CreateTicket />} />
-        </Route>
-
-        {/* Rutas exclusivas para Administradores */}
-        <Route element={<ProtectedRoute allowedRoles={['administrador', 'admin']} />}>
-          <Route element={<MainLayout />}>
-            <Route path="/crear-usuario" element={<CrearUsuario />} />
-          </Route>
-        </Route>
-
-        {/* Rutas compartidas */}
-        <Route element={<ProtectedRoute allowedRoles={['administrador', 'admin', 'usuario municipal', 'supervisor de empresa externa', 'supervisor']} />}>
-          <Route element={<MainLayout />}>
-            <Route path="/bandeja-municipal" element={<BandejaMunicipal />} />
-            
-            {/* 1. Vista para convertir observaciones de terreno en tickets */}
-            <Route path="/observaciones-pendientes" element={<ObservacionesATickets />} />
-            <Route path="/observacion/:id" element={<GestionObservacion />} />
-            
-            {/* 2. Vista para auditar y gestionar los tickets oficiales creados */}
-            <Route path="/subsanacion" element={<SubsanacionTickets />} />
-            <Route path="/subsanacion/:id" element={<DetalleSubsanacion />} />
-            
-            <Route path="/historial-tickets" element={<HistorialTickets />} />
-          </Route>
-        </Route>
-
-        {/* Ruta EXCLUSIVA de Detalle de Ticket Oficial */}
-        <Route element={<ProtectedRoute allowedRoles={['administrador', 'admin', 'usuario municipal']} />}>
-          <Route element={<MainLayout />}>
-            <Route path="/detalle-ticket/:id" element={<DetalleTicket />} />
-          </Route>
-        </Route>
-
-        {/* Redirección por defecto */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </BrowserRouter>
-  );
+  return <Outlet />;
 }
 
-export default App;
+function RoleBasedRedirect() {
+  const userDataString = localStorage.getItem('user_data');
+  const userData = userDataString ? JSON.parse(userDataString) : null;
+  const rol = userData?.rol?.toLowerCase() || '';
+
+  if (rol.includes('fiscalizador')) {
+    return <Navigate to="/fiscalizador" replace />;
+  }
+  return <Navigate to="/dashboard" replace />;
+}
+
+function MunicipalOrAdminRoute() {
+  const userDataString = localStorage.getItem('user_data');
+  const userData = userDataString ? JSON.parse(userDataString) : null;
+  const rol = userData?.rol?.toLowerCase() || '';
+
+  const esMunicipalOrAdmin = ['administrador', 'admin', 'usuario municipal', 'municipal'].includes(rol);
+
+  if (!esMunicipalOrAdmin) {
+    return <RoleBasedRedirect />;
+  }
+
+  return <Outlet />;
+}
+
+// Guardián exclusivo para Administradores
+function AdminOnlyRoute() {
+  const userDataString = localStorage.getItem('user_data');
+  const userData = userDataString ? JSON.parse(userDataString) : null;
+  const rol = userData?.rol?.toLowerCase() || '';
+
+  const esAdmin = ['administrador', 'admin'].includes(rol);
+
+  if (!esAdmin) {
+    return <RoleBasedRedirect />;
+  }
+
+  return <Outlet />;
+}
+
+export default function App() {
+  return (
+    <Router>
+      <div className="w-screen min-h-screen bg-[#f8fafc] text-gray-900 m-0 p-0">
+        <main className="w-full min-h-screen">
+          <Routes>
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/login" element={<LoginPage />} />
+
+            {/* Rutas Protegidas por Autenticación */}
+            <Route element={<ProtectedRoute />}>
+              
+              {/* Portal y Vistas del Fiscalizador */}
+              <Route path="/fiscalizador" element={<FiscalizadorHome />} />
+              <Route path="/fiscalizador/observaciones" element={<FiscalizadorObservacionesPage />} />
+              <Route path="/observaciones/nueva" element={<CreateObservationPage />} />
+
+              {/* Vistas bloqueadas para el Fiscalizador (Dashboard y gestión general) */}
+              <Route element={<NonFiscalizadorRoute />}>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/tickets/activos" element={<TicketsActivosPage />} />
+                <Route path="/supervisor/tickets" element={<TicketsSupervisorPage />} />
+              </Route>
+
+              {/* Vistas exclusivas de Validación e Historial (Admin y Municipal) */}
+              <Route element={<MunicipalOrAdminRoute />}>
+                <Route path="/observaciones/pendientes" element={<ObservacionesPendientesPage />} />
+                <Route path="/tickets/cerrados" element={<TicketsCerradosPage />} />
+              </Route>
+
+              {/* Vistas exclusivas de Administración (Solo Administrador) */}
+              <Route element={<AdminOnlyRoute />}>
+                <Route path="/empresas/nueva" element={<CrearEmpresaPage />} />
+                <Route path="/usuarios/nuevo" element={<CrearUsuarioPage />} />
+                <Route path="/contratos/nuevo" element={<CrearContratoPage />} />
+              </Route>
+
+              {/* Vistas de detalle de Tickets */}
+              <Route path="/tickets/:id" element={<TicketDetailPage />} />
+            </Route>
+
+            {/* Redirección inteligente por defecto según el rol */}
+            <Route path="*" element={<RoleBasedRedirect />} />
+          </Routes>
+        </main>
+      </div>
+    </Router>
+  );
+}
