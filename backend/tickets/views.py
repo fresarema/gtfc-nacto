@@ -24,6 +24,13 @@ ROLES_EMPRESA_EXTERNA = [
     'operario de empresa externa',
     'operario',
 ]
+ROLES_VALIDOS_SISTEMA = [
+    'Administrador',
+    'Usuario Municipal',
+    'Supervisor de Empresa Externa',
+    'Fiscalizador',
+    'Operario de Empresa Externa',
+]
 
 
 def obtener_usuario_autenticado(request):
