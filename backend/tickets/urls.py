@@ -22,4 +22,7 @@ urlpatterns = [
     path('empresas/crear/', views.crear_empresa, name='crear_empresa'),
     path('empresas/<int:id_empresa>/', views.detalle_editar_empresa, name='detalle_editar_empresa'),
     path('fiscalizador/observaciones/', views.mis_observaciones_fiscalizador_view, name='mis_observaciones_fiscalizador'),
+    path('notificaciones/', views.listar_notificaciones, name='listar_notificaciones'),
+    path('notificaciones/leer-todas/', views.marcar_todas_notificaciones_leidas, name='marcar_todas_notificaciones_leidas'),
+    path('notificaciones/<int:id_notificacion>/leer/', views.marcar_notificacion_leida, name='marcar_notificacion_leida'),
 ]

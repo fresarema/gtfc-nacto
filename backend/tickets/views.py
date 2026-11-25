@@ -9,7 +9,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.core import signing
 from django.contrib.auth.hashers import check_password, make_password
-from .models import Usuario, ObservacionTerreno, Fotografia, Empresa, Area, Ticket, HistorialTicket
+from django.db.models import Q
+from .models import Usuario, ObservacionTerreno, Fotografia, Empresa, Area, Ticket, HistorialTicket, Notificacion
 
 
 # --- CONSTANTES DE ROLES Y HELPERS ---
@@ -164,7 +165,48 @@ def serializar_historial_ticket(ticket, publico=False, orden='asc'):
 
     return historial
 
+def crear_notificaciones(
+    tipo,
+    mensaje,
+    actor=None,
+    ticket=None,
+    observacion=None,
+    notificar_municipales=True,
+    empresa_supervisores=None,
+):
+    """Genera notificaciones individuales respetando roles y aislamiento por empresa."""
+    filtro = Q()
 
+    if notificar_municipales:
+        for rol in ROLES_MUNICIPALES:
+            filtro |= Q(rol__iexact=rol)
+
+    if empresa_supervisores is not None:
+        filtro_sup = Q()
+        for rol in ROLES_SUPERVISOR:
+            filtro_sup |= Q(rol__iexact=rol)
+        filtro |= (filtro_sup & Q(id_empresa=empresa_supervisores))
+
+    if not filtro:
+        return 0
+
+    destinatarios = Usuario.objects.filter(filtro).distinct()
+    if actor is not None:
+        destinatarios = destinatarios.exclude(id_usuario=actor.id_usuario)
+
+    lote = [
+        Notificacion(
+            id_usuario=dest,
+            id_ticket=ticket,
+            id_observacion=observacion,
+            tipo=tipo,
+            mensaje=mensaje,
+        )
+        for dest in destinatarios
+    ]
+    if lote:
+        Notificacion.objects.bulk_create(lote)
+    return len(lote)
 
 # --- AUTENTICACIÓN Y PERFIL ---
 
@@ -320,6 +362,17 @@ def observaciones_view(request):
                     url_fotografia=ruta_bd
                 )
 
+                actor_nombre = f"{usuario.nombre} {usuario.apellido}".strip()
+                detalle_empresa = f" para {empresa.razon_social}" if empresa else ""
+                crear_notificaciones(
+                    tipo="nueva_observacion",
+                    mensaje=f"{actor_nombre} registró una nueva observación en terreno (#{observacion.id_observacion}){detalle_empresa}.",
+                    actor=usuario,
+                    observacion=observacion,
+                    notificar_municipales=True,
+                    empresa_supervisores=None,
+                )
+
             return Response({
                 "mensaje": "Observación registrada exitosamente",
                 "id_observacion": observacion.id_observacion,
@@ -454,6 +507,17 @@ def convertir_observacion_a_ticket(request):
         observacion.estado = 'Convertido'
         observacion.save()
 
+        actor_nombre = f"{creador.nombre} {creador.apellido}".strip()
+        crear_notificaciones(
+            tipo="ticket_creado",
+            mensaje=f"{actor_nombre} generó el ticket #{ticket.cod_consulta_externa} asignado a {empresa.razon_social}.",
+            actor=creador,
+            ticket=ticket,
+            observacion=observacion,
+            notificar_municipales=True,
+            empresa_supervisores=empresa,
+        )
+
         return Response({
             "mensaje": "Ticket generado exitosamente",
             "cod_consulta_externa": ticket.cod_consulta_externa,
@@ -553,6 +617,17 @@ def responder_ticket_supervisor(request, id_ticket):
             comentarios=comentario_respuesta or "Respuesta registrada por el supervisor."
         )
 
+        empresa_nombre = ticket.id_empresa.razon_social if ticket.id_empresa else "Empresa externa"
+        actor_nombre = f"{supervisor.nombre} {supervisor.apellido}".strip()
+        crear_notificaciones(
+            tipo="ticket_respondido",
+            mensaje=f"{empresa_nombre} ({actor_nombre}) respondió al ticket #{ticket.cod_consulta_externa} (estado: {nuevo_estado}).",
+            actor=supervisor,
+            ticket=ticket,
+            notificar_municipales=True,
+            empresa_supervisores=ticket.id_empresa,
+        )
+
         return Response({"mensaje": f"Ticket actualizado a estado {nuevo_estado} exitosamente."}, status=status.HTTP_200_OK)
 
     except Ticket.DoesNotExist:
@@ -612,6 +687,17 @@ def subsanar_ticket_supervisor(request, id_ticket):
             comentarios=comentario or "Envío de subsanación y evidencia realizado por el supervisor."
         )
 
+        empresa_nombre = ticket.id_empresa.razon_social if ticket.id_empresa else "Empresa externa"
+        actor_nombre = f"{supervisor.nombre} {supervisor.apellido}".strip()
+        crear_notificaciones(
+            tipo="ticket_subsanado",
+            mensaje=f"{empresa_nombre} ({actor_nombre}) subsanó el ticket #{ticket.cod_consulta_externa} y lo envió a revisión.",
+            actor=supervisor,
+            ticket=ticket,
+            notificar_municipales=True,
+            empresa_supervisores=ticket.id_empresa,
+        )
+
         return Response({"mensaje": "Subsanación y evidencia registradas exitosamente."}, status=status.HTTP_200_OK)
 
     except Ticket.DoesNotExist:
@@ -656,6 +742,24 @@ def auditar_ticket_municipal(request, id_ticket):
             id_usuario=auditor,
             tipo_accion="Auditoría Municipal",
             comentarios=f"Decisión: {nuevo_estado}. Motivo/Comentario: {comentario}"
+        )
+
+        actor_nombre = f"{auditor.nombre} {auditor.apellido}".strip()
+        empresa_nombre = ticket.id_empresa.razon_social if ticket.id_empresa else "Empresa externa"
+        if nuevo_estado == 'Cerrado':
+            msg_audit = f"{actor_nombre} aprobó y cerró el ticket #{ticket.cod_consulta_externa} ({empresa_nombre})."
+            tipo_audit = "ticket_cerrado"
+        else:
+            msg_audit = f"{actor_nombre} rechazó la subsanación del ticket #{ticket.cod_consulta_externa} ({empresa_nombre})."
+            tipo_audit = "ticket_rechazado"
+
+        crear_notificaciones(
+            tipo=tipo_audit,
+            mensaje=msg_audit,
+            actor=auditor,
+            ticket=ticket,
+            notificar_municipales=True,
+            empresa_supervisores=ticket.id_empresa,
         )
 
         return Response({"mensaje": f"Ticket auditado exitosamente a estado {nuevo_estado}."}, status=status.HTTP_200_OK)
@@ -1024,6 +1128,16 @@ def generar_enlace_externo_ticket(request, id_ticket):
             comentarios=f"Enlace de consulta externa habilitado por 3 días (vigente hasta {exp_local.strftime('%Y-%m-%d %H:%M')})."
         )
 
+        actor_nombre = f"{usuario.nombre} {usuario.apellido}".strip()
+        crear_notificaciones(
+            tipo="enlace_externo",
+            mensaje=f"{actor_nombre} habilitó el enlace de consulta externa (3 días) del ticket #{ticket.cod_consulta_externa}.",
+            actor=usuario,
+            ticket=ticket,
+            notificar_municipales=True,
+            empresa_supervisores=None,
+        )
+
         return Response({
             "mensaje": "Enlace de consulta externa habilitado por 3 días.",
             "id_ticket": ticket.id_ticket,
@@ -1320,5 +1434,117 @@ def detalle_editar_usuario(request, id_usuario):
 
     except Empresa.DoesNotExist:
         return Response({"error": "La empresa especificada no existe."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# --- NOTIFICACIONES (CAMPANA) ---
+
+def serializar_notificacion(n):
+    dt = formatear_datetime_local(n.fecha_creacion)
+    return {
+        "id_notificacion": n.id_notificacion,
+        "tipo": n.tipo,
+        "mensaje": n.mensaje,
+        "leida": n.leida,
+        "id_ticket": n.id_ticket_id,
+        "cod_consulta_externa": n.id_ticket.cod_consulta_externa if n.id_ticket else None,
+        "id_observacion": n.id_observacion_id,
+        "fecha": dt.strftime('%Y-%m-%d') if dt else None,
+        "hora": dt.strftime('%H:%M:%S') if dt else None,
+        "fecha_hora": dt.strftime('%Y-%m-%d %H:%M:%S') if dt else None,
+    }
+
+
+@api_view(['GET'])
+def listar_notificaciones(request):
+    usuario, error_resp = obtener_usuario_autenticado(request)
+    if error_resp:
+        return error_resp
+
+    if usuario.rol.lower() not in (ROLES_MUNICIPALES + ROLES_SUPERVISOR):
+        return Response(
+            {"error": "Tu rol no tiene acceso al módulo de notificaciones."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        base_qs = (
+            Notificacion.objects
+            .select_related('id_ticket', 'id_observacion')
+            .filter(id_usuario=usuario)
+            .order_by('-fecha_creacion', '-id_notificacion')
+        )
+
+        no_leidas = base_qs.filter(leida=False).count()
+
+        solo_no_leidas = request.query_params.get('solo_no_leidas', '').lower() in ['true', '1', 'si']
+        if solo_no_leidas:
+            qs = base_qs.filter(leida=False)
+        else:
+            qs = base_qs
+
+        try:
+            limite = int(request.query_params.get('limite', 30))
+            limite = max(1, min(limite, 100))
+        except (ValueError, TypeError):
+            limite = 30
+
+        items = [serializar_notificacion(n) for n in qs[:limite]]
+
+        return Response({
+            "no_leidas": no_leidas,
+            "total": qs.count(),
+            "notificaciones": items
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['PATCH', 'POST'])
+def marcar_notificacion_leida(request, id_notificacion):
+    usuario, error_resp = obtener_usuario_autenticado(request)
+    if error_resp:
+        return error_resp
+
+    if usuario.rol.lower() not in (ROLES_MUNICIPALES + ROLES_SUPERVISOR):
+        return Response({"error": "Acceso denegado."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        notif = Notificacion.objects.get(id_notificacion=id_notificacion, id_usuario=usuario)
+        if not notif.leida:
+            notif.leida = True
+            notif.save(update_fields=['leida'])
+
+        restantes = Notificacion.objects.filter(id_usuario=usuario, leida=False).count()
+        return Response({
+            "mensaje": "Notificación marcada como leída.",
+            "id_notificacion": notif.id_notificacion,
+            "no_leidas": restantes
+        }, status=status.HTTP_200_OK)
+
+    except Notificacion.DoesNotExist:
+        return Response({"error": "Notificación no encontrada."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST', 'PATCH'])
+def marcar_todas_notificaciones_leidas(request):
+    usuario, error_resp = obtener_usuario_autenticado(request)
+    if error_resp:
+        return error_resp
+
+    if usuario.rol.lower() not in (ROLES_MUNICIPALES + ROLES_SUPERVISOR):
+        return Response({"error": "Acceso denegado."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        marcadas = Notificacion.objects.filter(id_usuario=usuario, leida=False).update(leida=True)
+        return Response({
+            "mensaje": "Todas las notificaciones fueron marcadas como leídas.",
+            "marcadas": marcadas,
+            "no_leidas": 0
+        }, status=status.HTTP_200_OK)
+
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
