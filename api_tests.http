@@ -66,3 +66,13 @@ Authorization: Bearer eyJpZF91c3VhcmlvIjoyfQ:1xGnps:ldsS4tlH9NifV667iIZmwbT5UEJe
     "comentario": "Se ha retirado la totalidad de los escombros del paso peatonal. Adjuntaremos informe.",
     "estado": "Resuelto"
 }
+
+
+### Listar usuarios (Admin)
+GET http://localhost:8000/api/usuarios/
+Authorization: Bearer eyJpZF91c3VhcmlvIjoxfQ:1xW3Rt:bG2ElkJVT1tjdeKSNd_QfBVlyVwo-z3QyNNBdQqxU0M
+
+
+### Listar empresas completas (Admin)
+GET http://localhost:8000/api/empresas/
+Authorization: Bearer eyJpZF91c3VhcmlvIjoxfQ:1xW3Rt:bG2ElkJVT1tjdeKSNd_QfBVlyVwo-z3QyNNBdQqxU0M
