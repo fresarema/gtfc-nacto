@@ -76,3 +76,16 @@ Authorization: Bearer eyJpZF91c3VhcmlvIjoxfQ:1xW3Rt:bG2ElkJVT1tjdeKSNd_QfBVlyVwo
 ### Listar empresas completas (Admin)
 GET http://localhost:8000/api/empresas/
 Authorization: Bearer eyJpZF91c3VhcmlvIjoxfQ:1xW3Rt:bG2ElkJVT1tjdeKSNd_QfBVlyVwo-z3QyNNBdQqxU0M
+
+
+### Bitácora del ticket
+GET http://localhost:8000/api/tickets/1/historial/
+Authorization: Bearer eyJpZF91c3VhcmlvIjoxfQ:1xW3Rt:bG2ElkJVT1tjdeKSNd_QfBVlyVwo-z3QyNNBdQqxU0M
+
+
+### Generar / renovar enlace externo (vigencia 3 días)
+POST http://localhost:8000/api/tickets/1/enlace-externo/
+Authorization: Bearer eyJpZF91c3VhcmlvIjoxfQ:1xW3Rt:bG2ElkJVT1tjdeKSNd_QfBVlyVwo-z3QyNNBdQqxU0M
+
+### Consultar enlace público SIN token
+GET http://localhost:8000/api/tickets/consulta/TK-2026-ADA8/

@@ -64,6 +64,100 @@ def calcular_fecha_vencimiento_habil(fecha_inicio, dias_habiles):
             dias_agregados += 1
     return fecha_actual
 
+def formatear_datetime_local(dt):
+    """Convierte a hora local de forma segura (funcione con USE_TZ=True o False)."""
+    if not dt:
+        return None
+    return timezone.localtime(dt) if timezone.is_aware(dt) else dt
+
+
+def calcular_dias_habiles_restantes(fecha_vencimiento, fecha_base=None):
+    """
+    Retorna días hábiles restantes hasta el vencimiento:
+    > 0: días hábiles que faltan
+      0: vence hoy
+    < 0: días hábiles de atraso (vencido)
+    """
+    if not fecha_vencimiento:
+        return None
+
+    hoy = fecha_base or date.today()
+    if fecha_vencimiento == hoy:
+        return 0
+
+    if fecha_vencimiento > hoy:
+        dias = 0
+        cursor = hoy
+        while cursor < fecha_vencimiento:
+            cursor += timedelta(days=1)
+            if cursor.weekday() < 5:
+                dias += 1
+        return dias
+    else:
+        dias = 0
+        cursor = fecha_vencimiento
+        while cursor < hoy:
+            cursor += timedelta(days=1)
+            if cursor.weekday() < 5:
+                dias += 1
+        return -dias if dias > 0 else -1
+
+
+def obtener_fecha_expiracion_efectiva(ticket):
+    """Retorna la fecha/hora de expiración del enlace externo (respaldo de 3 días para tickets antiguos)."""
+    if ticket.fecha_expiracion_consulta:
+        return ticket.fecha_expiracion_consulta
+    if ticket.fecha_creacion:
+        hora_base = ticket.hora_creacion or datetime.min.time()
+        dt_base = datetime.combine(ticket.fecha_creacion, hora_base)
+        if settings.USE_TZ:
+            dt_base = timezone.make_aware(dt_base, timezone.get_current_timezone())
+        return dt_base + timedelta(days=3)
+    return None
+
+
+def enlace_externo_esta_vigente(ticket):
+    fecha_exp = obtener_fecha_expiracion_efectiva(ticket)
+    if not fecha_exp:
+        return False
+    ahora = timezone.now()
+    if timezone.is_aware(fecha_exp) != timezone.is_aware(ahora):
+        fecha_exp = timezone.make_aware(fecha_exp) if timezone.is_aware(ahora) else fecha_exp.replace(tzinfo=None)
+    return ahora <= fecha_exp
+
+
+def serializar_historial_ticket(ticket, publico=False, orden='asc'):
+    """Construye la línea de tiempo inmutable de un ticket."""
+    campo_orden = '-fecha_accion' if orden == 'desc' else 'fecha_accion'
+    registros = (
+        HistorialTicket.objects
+        .select_related('id_usuario')
+        .filter(id_ticket=ticket)
+        .order_by(campo_orden, '-id_historial' if orden == 'desc' else 'id_historial')
+    )
+
+    historial = []
+    for h in registros:
+        dt = formatear_datetime_local(h.fecha_accion)
+        item = {
+            "id_historial": h.id_historial,
+            "fecha": dt.strftime('%Y-%m-%d') if dt else None,
+            "hora": dt.strftime('%H:%M:%S') if dt else None,
+            "fecha_hora": dt.strftime('%Y-%m-%d %H:%M:%S') if dt else None,
+            "tipo_accion": h.tipo_accion,
+            "comentarios": h.comentarios,
+            "usuario_rol": h.id_usuario.rol if h.id_usuario else "Sistema",
+        }
+        if not publico:
+            item["usuario_nombre"] = (
+                f"{h.id_usuario.nombre} {h.id_usuario.apellido}"
+                if h.id_usuario else "Sistema"
+            )
+        historial.append(item)
+
+    return historial
+
+
 
 # --- AUTENTICACIÓN Y PERFIL ---
 
@@ -622,12 +716,20 @@ def detalle_ticket_view(request, id_ticket):
             }
 
         nombre_empresa = tk.id_empresa.razon_social if tk.id_empresa else "No asignada"
+        fecha_exp_dt = formatear_datetime_local(obtener_fecha_expiracion_efectiva(tk))
+        dias_restantes = (
+            calcular_dias_habiles_restantes(tk.fecha_vencimiento)
+            if tk.estado.lower() != 'cerrado'
+            else None
+        )
 
         data = {
             "id": tk.id_ticket,
             "id_ticket": tk.id_ticket,
             "id_observacion": tk.id_observacion.id_observacion if tk.id_observacion else None,
             "cod_consulta_externa": tk.cod_consulta_externa,
+            "fecha_expiracion_consulta": fecha_exp_dt.strftime("%Y-%m-%d %H:%M:%S") if fecha_exp_dt else None,
+            "enlace_externo_vigente": enlace_externo_esta_vigente(tk),
             "area_asignada": tk.id_area.nombre_area if tk.id_area else "General",
             "id_empresa": tk.id_empresa.id_empresa if tk.id_empresa else None,
             "empresa_nombre": nombre_empresa,
@@ -641,11 +743,13 @@ def detalle_ticket_view(request, id_ticket):
             "fecha_creacion": tk.fecha_creacion.strftime("%Y-%m-%d") if tk.fecha_creacion else None,
             "fecha_registro": tk.id_observacion.fecha_registro.strftime("%Y-%m-%d") if tk.id_observacion and tk.id_observacion.fecha_registro else None,
             "fecha_vencimiento": tk.fecha_vencimiento.strftime("%Y-%m-%d") if tk.fecha_vencimiento else None,
+            "dias_habiles_restantes": dias_restantes,
             "fecha_respuesta_supervisor": tk.fecha_respuesta_supervisor.strftime("%Y-%m-%d") if tk.fecha_respuesta_supervisor else None,
             "hora_respuesta_supervisor": tk.hora_respuesta_supervisor.strftime("%H:%M:%S") if tk.hora_respuesta_supervisor else None,
             "fotografias": [foto_original] if foto_original else [],
             "evidencia": evidencia_data,
-            "ubicacion_observacion": tk.id_observacion.ubicacion_observacion if tk.id_observacion else "Sin dirección registrada"
+            "ubicacion_observacion": tk.id_observacion.ubicacion_observacion if tk.id_observacion else "Sin dirección registrada",
+            "historial": serializar_historial_ticket(tk, publico=False, orden='asc')
         }
 
         return Response(data, status=status.HTTP_200_OK)
@@ -763,34 +867,215 @@ def crear_empresa(request):
 
 
 @api_view(['GET'])
-def consulta_externa_ticket(request, codigo):
-    try:
-        ticket = Ticket.objects.select_related('id_empresa').get(cod_consulta_externa=codigo)
+def historial_ticket_view(request, id_ticket):
+    """Devuelve la bitácora cronológica inmutable de un ticket específico."""
+    usuario, error_resp = obtener_usuario_autenticado(request)
+    if error_resp:
+        return error_resp
 
-        historial_qs = HistorialTicket.objects.filter(id_ticket=ticket).order_by('-fecha_accion')
-        historial = [{"fecha": h.fecha_accion, "accion": h.tipo_accion} for h in historial_qs]
+    rol_lower = usuario.rol.lower()
+    if rol_lower not in (ROLES_MUNICIPALES + ROLES_EMPRESA_EXTERNA):
+        return Response({"error": "No tienes permisos para consultar el historial."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        tk = Ticket.objects.get(id_ticket=id_ticket)
+
+        if rol_lower in ROLES_EMPRESA_EXTERNA:
+            if not usuario.id_empresa or tk.id_empresa_id != usuario.id_empresa_id:
+                return Response(
+                    {"error": "No tienes permiso para ver el historial de tickets de otra empresa."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        orden = request.query_params.get('orden', 'asc').lower()
+        if orden not in ['asc', 'desc']:
+            orden = 'asc'
+
+        historial = serializar_historial_ticket(tk, publico=False, orden=orden)
+        return Response({
+            "id_ticket": tk.id_ticket,
+            "cod_consulta_externa": tk.cod_consulta_externa,
+            "estado_actual": tk.estado,
+            "total_eventos": len(historial),
+            "historial": historial
+        }, status=status.HTTP_200_OK)
+
+    except Ticket.DoesNotExist:
+        return Response({"error": "Ticket no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def alertas_tickets_por_vencer(request):
+    """Retorna tickets vencidos y por vencer (por defecto <= 2 días hábiles) para el banner de alerta."""
+    usuario, error_resp = obtener_usuario_autenticado(request)
+    if error_resp:
+        return error_resp
+
+    rol_lower = usuario.rol.lower()
+    if rol_lower not in (ROLES_MUNICIPALES + ROLES_SUPERVISOR):
+        return Response({"error": "Acceso denegado."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        dias_umbral = int(request.query_params.get('dias', 2))
+        if dias_umbral < 0:
+            dias_umbral = 2
+    except (ValueError, TypeError):
+        dias_umbral = 2
+
+    try:
+        tickets_qs = (
+            Ticket.objects
+            .select_related('id_empresa', 'id_area')
+            .exclude(estado__iexact='Cerrado')
+            .filter(fecha_vencimiento__isnull=False)
+            .order_by('fecha_vencimiento', 'id_ticket')
+        )
+
+        if rol_lower in ROLES_SUPERVISOR:
+            if not usuario.id_empresa:
+                return Response({
+                    "mostrar_banner": False,
+                    "dias_umbral": dias_umbral,
+                    "total_alertas": 0,
+                    "total_vencidos": 0,
+                    "total_por_vencer": 0,
+                    "vencidos": [],
+                    "por_vencer": []
+                }, status=status.HTTP_200_OK)
+            tickets_qs = tickets_qs.filter(id_empresa=usuario.id_empresa)
+
+        hoy = date.today()
+        vencidos = []
+        por_vencer = []
+
+        for tk in tickets_qs:
+            dias_restantes = calcular_dias_habiles_restantes(tk.fecha_vencimiento, fecha_base=hoy)
+            if dias_restantes is None or dias_restantes > dias_umbral:
+                continue
+
+            nombre_empresa = tk.id_empresa.razon_social if tk.id_empresa else "No asignada"
+            item = {
+                "id_ticket": tk.id_ticket,
+                "cod_consulta_externa": tk.cod_consulta_externa,
+                "empresa_nombre": nombre_empresa,
+                "area_asignada": tk.id_area.nombre_area if tk.id_area else "General",
+                "prioridad": tk.prioridad,
+                "estado": tk.estado,
+                "fecha_vencimiento": tk.fecha_vencimiento.strftime('%Y-%m-%d'),
+                "dias_habiles_restantes": dias_restantes,
+                "nivel_alerta": "vencido" if dias_restantes < 0 else "por_vencer"
+            }
+
+            if dias_restantes < 0:
+                vencidos.append(item)
+            else:
+                por_vencer.append(item)
+
+        total_alertas = len(vencidos) + len(por_vencer)
+        return Response({
+            "mostrar_banner": total_alertas > 0,
+            "dias_umbral": dias_umbral,
+            "total_alertas": total_alertas,
+            "total_vencidos": len(vencidos),
+            "total_por_vencer": len(por_vencer),
+            "vencidos": vencidos,
+            "por_vencer": por_vencer
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def generar_enlace_externo_ticket(request, id_ticket):
+    """Activa o renueva por 3 días la vigencia del enlace público de solo lectura de un ticket."""
+    usuario, error_resp = obtener_usuario_autenticado(request)
+    if error_resp:
+        return error_resp
+
+    if usuario.rol.lower() not in ROLES_MUNICIPALES:
+        return Response(
+            {"error": "Solo un Administrador o Usuario Municipal puede generar enlaces de consulta externa."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        ticket = Ticket.objects.get(id_ticket=id_ticket)
+
+        nueva_expiracion = timezone.now() + timedelta(days=3)
+        ticket.fecha_expiracion_consulta = nueva_expiracion
+        ticket.save(update_fields=['fecha_expiracion_consulta'])
+
+        exp_local = formatear_datetime_local(nueva_expiracion)
+
+        HistorialTicket.objects.create(
+            id_ticket=ticket,
+            id_usuario=usuario,
+            tipo_accion="Enlace Externo Generado",
+            comentarios=f"Enlace de consulta externa habilitado por 3 días (vigente hasta {exp_local.strftime('%Y-%m-%d %H:%M')})."
+        )
+
+        return Response({
+            "mensaje": "Enlace de consulta externa habilitado por 3 días.",
+            "id_ticket": ticket.id_ticket,
+            "cod_consulta_externa": ticket.cod_consulta_externa,
+            "dias_vigencia": 3,
+            "fecha_expiracion": exp_local.strftime('%Y-%m-%d %H:%M:%S'),
+            "vigente": True,
+            "endpoint_consulta": f"/api/tickets/consulta/{ticket.cod_consulta_externa}/"
+        }, status=status.HTTP_200_OK)
+
+    except Ticket.DoesNotExist:
+        return Response({"error": "Ticket no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def consulta_externa_ticket(request, codigo):
+    """Consulta pública de solo lectura mediante código único, válida solo por 3 días."""
+    try:
+        ticket = Ticket.objects.select_related('id_empresa', 'id_area', 'id_observacion').get(
+            cod_consulta_externa=codigo
+        )
+
+        fecha_exp_dt = formatear_datetime_local(obtener_fecha_expiracion_efectiva(ticket))
+        if not enlace_externo_esta_vigente(ticket):
+            return Response({
+                "error": "Este enlace de consulta externa ha caducado (vigencia máxima de 3 días).",
+                "expirado": True,
+                "codigo": ticket.cod_consulta_externa,
+                "fecha_expiracion": fecha_exp_dt.strftime('%Y-%m-%d %H:%M:%S') if fecha_exp_dt else None
+            }, status=status.HTTP_410_GONE)
+
+        rutas_fotos = []
+        if ticket.id_observacion:
+            fotos = Fotografia.objects.filter(id_observacion=ticket.id_observacion)
+            rutas_fotos = [f.url_fotografia for f in fotos]
 
         data = {
             "codigo": ticket.cod_consulta_externa,
             "estado": ticket.estado,
             "prioridad": ticket.prioridad,
             "descripcion": ticket.descripcion,
-            "fecha_creacion": ticket.fecha_creacion,
+            "area_asignada": ticket.id_area.nombre_area if ticket.id_area else "General",
             "empresa_asignada": ticket.id_empresa.razon_social if ticket.id_empresa else "No asignada",
-            "historial": historial
+            "fecha_creacion": ticket.fecha_creacion.strftime('%Y-%m-%d') if ticket.fecha_creacion else None,
+            "fecha_vencimiento": ticket.fecha_vencimiento.strftime('%Y-%m-%d') if ticket.fecha_vencimiento else None,
+            "ubicacion_observacion": ticket.id_observacion.ubicacion_observacion if ticket.id_observacion else None,
+            "fotografias": rutas_fotos,
+            "fecha_expiracion": fecha_exp_dt.strftime('%Y-%m-%d %H:%M:%S') if fecha_exp_dt else None,
+            "solo_lectura": True,
+            "historial": serializar_historial_ticket(ticket, publico=True, orden='asc')
         }
         return Response(data, status=status.HTTP_200_OK)
+
     except Ticket.DoesNotExist:
         return Response({"error": "El código de ticket ingresado no existe."}, status=status.HTTP_404_NOT_FOUND)
-
-
-ROLES_VALIDOS_SISTEMA = [
-    'Administrador',
-    'Usuario Municipal',
-    'Supervisor de Empresa Externa',
-    'Fiscalizador',
-    'Operario de Empresa Externa',
-]
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def serializar_empresa(emp):
