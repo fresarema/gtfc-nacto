@@ -64,7 +64,15 @@ class Ticket(models.Model):
     id_area = models.ForeignKey(Area, on_delete=models.RESTRICT, db_column='id_area')
     
     # Relaciones con Usuario requieren related_name cuando hay más de un ForeignKey a la misma tabla
-    supervisor_ticket = models.ForeignKey(Usuario, related_name='tickets_supervisados', on_delete=models.RESTRICT, db_column='supervisor_ticket')
+    # Permite null por si una empresa recién creada todavía no tiene un usuario supervisor asignado
+    supervisor_ticket = models.ForeignKey(
+        Usuario,
+        related_name='tickets_supervisados',
+        on_delete=models.RESTRICT,
+        null=True,
+        blank=True,
+        db_column='supervisor_ticket'
+    )
     creador_ticket = models.ForeignKey(Usuario, related_name='tickets_creados', on_delete=models.RESTRICT, db_column='creador_ticket')
     
     prioridad = models.CharField(max_length=50)
@@ -78,6 +86,7 @@ class Ticket(models.Model):
     hora_respuesta_supervisor = models.TimeField(null=True, blank=True)
     estado = models.CharField(max_length=50, default='Abierto')
     cod_consulta_externa = models.CharField(max_length=50, unique=True)
+    fecha_expiracion_consulta = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'ticket'
@@ -114,3 +123,34 @@ class FotografiaEvidencia(models.Model):
 
     class Meta:
         db_table = 'fotografia_evidencia'
+
+class Notificacion(models.Model):
+    id_notificacion = models.AutoField(primary_key=True)
+    id_usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name='notificaciones',
+        db_column='id_usuario'
+    )
+    id_ticket = models.ForeignKey(
+        Ticket,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        db_column='id_ticket'
+    )
+    id_observacion = models.ForeignKey(
+        ObservacionTerreno,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        db_column='id_observacion'
+    )
+    tipo = models.CharField(max_length=50)
+    mensaje = models.TextField()
+    leida = models.BooleanField(default=False)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'notificacion'
+        ordering = ['-fecha_creacion']
