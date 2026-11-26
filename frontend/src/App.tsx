@@ -2,11 +2,13 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import LoginPage from './pages/Login/LoginPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
-import CreateObservationPage from './pages/CreateObservation/CreateObservationPage'; 
+import CreateObservationPage from './pages/CreateObservation/CreateObservationPage';
 import TicketDetailPage from './pages/TicketDetail/TicketDetailPage';
 import ObservacionesPendientesPage from './pages/Observaciones/ObservacionesPendientesPage';
 import TicketsCerradosPage from './pages/Tickets/TicketsCerradosPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import EmpresasPage from './pages/EmpresasPage/EmpresasPage';
+import UsuariosPage from './pages/UsuariosPage/UsuariosPage';
 import CrearEmpresaPage from './pages/CrearEmpresa/CrearEmpresaPage';
 import CrearUsuarioPage from './pages/CrearUsuario/CrearUsuarioPage';
 import TicketsSupervisorPage from './pages/Tickets/TicketsSupervisorPage';
@@ -14,6 +16,7 @@ import TicketsActivosPage from './pages/Tickets/TicketsActivosPage';
 import FiscalizadorHome from './pages/FiscalizadorHome/FiscalizadorHome';
 import FiscalizadorObservacionesPage from './pages/FiscalizadorObservacionesPage/FiscalizadorObservacionesPage';
 import CrearContratoPage from './pages/CrearContrato/CrearContratoPage';
+
 
 function NonFiscalizadorRoute() {
   const userDataString = localStorage.getItem('user_data');
@@ -78,11 +81,13 @@ export default function App() {
 
             {/* Rutas Protegidas por Autenticación */}
             <Route element={<ProtectedRoute />}>
-              
+
               {/* Portal y Vistas del Fiscalizador */}
+              
               <Route path="/fiscalizador" element={<FiscalizadorHome />} />
               <Route path="/fiscalizador/observaciones" element={<FiscalizadorObservacionesPage />} />
               <Route path="/observaciones/nueva" element={<CreateObservationPage />} />
+              
 
               {/* Vistas bloqueadas para el Fiscalizador (Dashboard y gestión general) */}
               <Route element={<NonFiscalizadorRoute />}>
@@ -99,6 +104,8 @@ export default function App() {
 
               {/* Vistas exclusivas de Administración (Solo Administrador) */}
               <Route element={<AdminOnlyRoute />}>
+                <Route path="/empresas" element={<EmpresasPage />} />
+                <Route path="/usuarios" element={<UsuariosPage />} />
                 <Route path="/empresas/nueva" element={<CrearEmpresaPage />} />
                 <Route path="/usuarios/nuevo" element={<CrearUsuarioPage />} />
                 <Route path="/contratos/nuevo" element={<CrearContratoPage />} />

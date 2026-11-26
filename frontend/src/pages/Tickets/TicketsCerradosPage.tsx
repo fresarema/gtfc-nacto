@@ -16,19 +16,24 @@ interface TicketCerrado {
   prioridad: string;
 }
 
+interface EmpresaFiltroItem {
+  id_empresa?: number;
+  id?: number;
+  razon_social?: string;
+  nombre?: string;
+}
+
 export default function TicketsCerradosPage() {
   const navigate = useNavigate();
   const [tickets, setTickets] = useState<TicketCerrado[]>([]);
-  const [empresas, setEmpresas] = useState<any[]>([]);
+  const [empresas, setEmpresas] = useState<EmpresaFiltroItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
 
-  // Estados de filtros
   const [fechaInicio, setFechaInicio] = useState<string>('');
   const [fechaFin, setFechaFin] = useState<string>('');
   const [empresaSeleccionada, setEmpresaSeleccionada] = useState<string>('');
 
-  // Estados de paginación
   const [paginaActual, setPaginaActual] = useState<number>(1);
   const elementosPorPagina = 10;
 
@@ -41,9 +46,14 @@ export default function TicketsCerradosPage() {
     try {
       const token = localStorage.getItem('access_token');
       const response = await api.get('/empresas/', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      setEmpresas(response.data || []);
+      const lista = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.results)
+          ? response.data.results
+          : [];
+      setEmpresas(lista);
     } catch (err) {
       console.error('Error al cargar empresas para filtros:', err);
     }
@@ -52,13 +62,18 @@ export default function TicketsCerradosPage() {
   const fetchTicketsCerrados = async () => {
     try {
       setLoading(true);
+      setError('');
       const token = localStorage.getItem('access_token');
       const response = await api.get('/tickets/supervisor/', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      
-      const data = response.data || [];
-      const cerrados = data.filter((t: any) => t.estado?.toLowerCase() === 'cerrado');
+
+      const data = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.results)
+          ? response.data.results
+          : [];
+      const cerrados = data.filter((t: TicketCerrado) => t.estado?.toLowerCase() === 'cerrado');
       setTickets(cerrados);
     } catch (err: any) {
       console.error('Error al cargar historial de tickets cerrados:', err);
@@ -68,21 +83,13 @@ export default function TicketsCerradosPage() {
     }
   };
 
-  // Lógica de filtrado robusta para fechas y empresa
   const ticketsFiltrados = tickets.filter((t) => {
-    const fechaItemBruta = t.fecha_creacion || '';
-    // Normalizamos la fecha del ticket a 'YYYY-MM-DD' cortando los primeros 10 caracteres
-    const fechaItem = fechaItemBruta.substring(0, 10);
-
+    const fechaItem = (t.fecha_creacion || '').substring(0, 10);
     if (!fechaItem) return false;
 
-    // Filtro por fecha de inicio (>=)
     if (fechaInicio && fechaItem < fechaInicio) return false;
-    
-    // Filtro por fecha de fin (<=)
     if (fechaFin && fechaItem > fechaFin) return false;
-    
-    // Filtro por empresa
+
     if (empresaSeleccionada) {
       const empresaStr = (t.empresa_asignada || t.razon_social || '').toLowerCase();
       const matchId = String(t.empresa_asignada) === String(empresaSeleccionada);
@@ -93,7 +100,6 @@ export default function TicketsCerradosPage() {
     return true;
   });
 
-  // Lógica de Paginación
   const totalPaginas = Math.ceil(ticketsFiltrados.length / elementosPorPagina) || 1;
   const indiceUltimoElemento = paginaActual * elementosPorPagina;
   const indicePrimerElemento = indiceUltimoElemento - elementosPorPagina;
@@ -106,13 +112,14 @@ export default function TicketsCerradosPage() {
     setPaginaActual(1);
   };
 
+  const normalizarPrioridad = (prioridad?: string) =>
+    (prioridad || 'normal').toLowerCase().trim().replace(/\s+/g, '_');
+
   return (
-    <div 
-      className="dashboard-app-layout"
-      style={{ 
-        backgroundImage: `linear-gradient(rgba(248, 250, 252, 0.94), rgba(248, 250, 252, 0.94)), url(${fondo})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center'
+    <div
+      className="dashboard-app-layout historial-page-bg"
+      style={{
+        backgroundImage: `url(${fondo})`,
       }}
     >
       <Navbar />
@@ -123,54 +130,65 @@ export default function TicketsCerradosPage() {
             <h1 className="historial-title">Historial de Tickets Cerrados</h1>
             <p className="historial-subtitle">Consulta de registros finalizados con opciones de filtrado y paginación</p>
           </div>
-          <button onClick={() => navigate('/dashboard')} className="btn-volver-dash">
-            ← Volver al Panel
+          <button type="button" onClick={() => navigate('/dashboard')} className="btn-volver-dash">
+            Volver al panel principal
           </button>
         </header>
 
         {error && <div className="historial-error">{error}</div>}
 
-        {/* BARRA DE FILTROS */}
-        <div className="filter-card-container">
-          <div className="filter-label">
-             Filtrar Historial:
-          </div>
-          <div className="filter-group">
-            <label>Desde:</label>
-            <input 
-              type="date" 
-              value={fechaInicio} 
-              onChange={(e) => { setFechaInicio(e.target.value); setPaginaActual(1); }}
-              className="filter-date-input"
+        <div className="list-filter-bar">
+          <div className="filter-field">
+            <label htmlFor="cerrados-desde">Desde</label>
+            <input
+              id="cerrados-desde"
+              type="date"
+              value={fechaInicio}
+              onChange={(e) => {
+                setFechaInicio(e.target.value);
+                setPaginaActual(1);
+              }}
             />
           </div>
-          <div className="filter-group">
-            <label>Hasta:</label>
-            <input 
-              type="date" 
-              value={fechaFin} 
-              onChange={(e) => { setFechaFin(e.target.value); setPaginaActual(1); }}
-              className="filter-date-input"
+
+          <div className="filter-field">
+            <label htmlFor="cerrados-hasta">Hasta</label>
+            <input
+              id="cerrados-hasta"
+              type="date"
+              value={fechaFin}
+              onChange={(e) => {
+                setFechaFin(e.target.value);
+                setPaginaActual(1);
+              }}
             />
           </div>
-          <div className="filter-group" style={{ flexGrow: 1, maxWidth: '280px' }}>
-            <label>Empresa:</label>
-            <select 
-              value={empresaSeleccionada} 
-              onChange={(e) => { setEmpresaSeleccionada(e.target.value); setPaginaActual(1); }}
-              className="filter-date-input"
-              style={{ width: '100%' }}
+
+          <div className="filter-field filter-field--grow">
+            <label htmlFor="cerrados-empresa">Empresa</label>
+            <select
+              id="cerrados-empresa"
+              value={empresaSeleccionada}
+              onChange={(e) => {
+                setEmpresaSeleccionada(e.target.value);
+                setPaginaActual(1);
+              }}
             >
               <option value="">Todas las empresas</option>
-              {empresas.map((emp) => (
-                <option key={emp.id_empresa} value={emp.razon_social}>
-                  {emp.razon_social}
-                </option>
-              ))}
+              {empresas.map((emp, idx) => {
+                const nombreEmp = emp.razon_social || emp.nombre || '';
+                if (!nombreEmp) return null;
+                return (
+                  <option key={emp.id_empresa ?? emp.id ?? idx} value={nombreEmp}>
+                    {nombreEmp}
+                  </option>
+                );
+              })}
             </select>
           </div>
+
           {(fechaInicio || fechaFin || empresaSeleccionada) && (
-            <button onClick={limpiarFiltros} className="btn-clean-filter">
+            <button type="button" onClick={limpiarFiltros} className="btn-clear-filter">
               Limpiar Filtros
             </button>
           )}
@@ -180,58 +198,59 @@ export default function TicketsCerradosPage() {
           <div className="historial-loading">Cargando historial de tickets...</div>
         ) : (
           <div className="historial-table-card">
-            <table className="historial-data-table">
-              <thead>
-                <tr>
-                  <th>ID / CÓDIGO</th>
-                  <th>FECHA CREACIÓN</th>
-                  <th>EMPRESA ASIGNADA</th>
-                  <th>PRIORIDAD</th>
-                  <th>ESTADO</th>
-                  <th>ACCIONES</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ticketsPaginados.length > 0 ? (
-                  ticketsPaginados.map((tk) => (
-                    <tr key={tk.id_ticket}>
-                      <td className="font-mono">#{tk.cod_consulta_externa || tk.id_ticket}</td>
-                      <td>{tk.fecha_creacion || 'N/D'}</td>
-                      <td>{tk.empresa_asignada || tk.razon_social || 'General'}</td>
-                      <td>
-                        <span className={`badge-prioridad ${tk.prioridad?.toLowerCase()}`}>
-                          {tk.prioridad || 'Normal'}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="badge-estado cerrado">
-                          {tk.estado}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => navigate(`/tickets/${tk.id_ticket}`)}
-                          className="btn-link-detail"
-                        >
-                          Ver Detalle
-                        </button>
+            <div className="table-responsive-wrap">
+              <table className="historial-data-table">
+                <thead>
+                  <tr>
+                    <th>ID / CÓDIGO</th>
+                    <th>FECHA CREACIÓN</th>
+                    <th>EMPRESA ASIGNADA</th>
+                    <th>PRIORIDAD</th>
+                    <th>ESTADO</th>
+                    <th className="th-action-right">ACCIONES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ticketsPaginados.length > 0 ? (
+                    ticketsPaginados.map((tk) => (
+                      <tr key={tk.id_ticket}>
+                        <td className="font-mono">#{tk.cod_consulta_externa || tk.id_ticket}</td>
+                        <td>{tk.fecha_creacion || 'N/D'}</td>
+                        <td>{tk.empresa_asignada || tk.razon_social || 'General'}</td>
+                        <td>
+                          <span className={`badge-prioridad ${normalizarPrioridad(tk.prioridad)}`}>
+                            {tk.prioridad || 'Normal'}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="badge-estado cerrado">{tk.estado}</span>
+                        </td>
+                        <td className="td-action-right">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/tickets/${tk.id_ticket}`)}
+                            className="btn-link-detail"
+                          >
+                            Ver Detalle
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="text-empty-table">
+                        No se encontraron tickets cerrados con los filtros seleccionados.
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="text-empty-table">
-                      No se encontraron tickets cerrados con los filtros seleccionados.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-            {/* CONTROLES DE PAGINACIÓN */}
             {totalPaginas > 1 && (
               <div className="pagination-container">
-                <button 
+                <button
+                  type="button"
                   onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
                   disabled={paginaActual === 1}
                   className="btn-page"
@@ -241,7 +260,8 @@ export default function TicketsCerradosPage() {
                 <span className="pagination-info">
                   Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong>
                 </span>
-                <button 
+                <button
+                  type="button"
                   onClick={() => setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))}
                   disabled={paginaActual === totalPaginas}
                   className="btn-page"

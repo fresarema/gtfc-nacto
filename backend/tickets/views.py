@@ -12,6 +12,8 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.db.models import Q
 from .models import Usuario, ObservacionTerreno, Fotografia, Empresa, Area, Ticket, HistorialTicket, Notificacion
 
+from django.db.models.deletion import ProtectedError
+import re
 
 # --- CONSTANTES DE ROLES Y HELPERS ---
 
@@ -210,6 +212,9 @@ def crear_notificaciones(
 
 # --- AUTENTICACIÓN Y PERFIL ---
 
+
+
+
 @api_view(['POST'])
 def login_view(request):
     email = request.data.get('email')
@@ -256,6 +261,21 @@ def user_profile_view(request):
         "empresa_nombre": nombre_empresa,
         "empresa_asignada": nombre_empresa,
     }, status=status.HTTP_200_OK)
+
+def extraer_lat_lng_texto(ubicacion):
+    """Extrae (latitud, longitud) si ubicacion_observacion contiene coordenadas numéricas."""
+    if not ubicacion:
+        return None, None
+    matches = re.findall(r'-?\d+(?:[.,]\d+)?', str(ubicacion))
+    if len(matches) >= 2:
+        try:
+            lat = float(matches[0].replace(',', '.'))
+            lng = float(matches[1].replace(',', '.'))
+            if -90 <= lat <= 90 and -180 <= lng <= 180:
+                return lat, lng
+        except ValueError:
+            pass
+    return None, None
 
 
 # --- OBSERVACIONES EN TERRENO ---
@@ -544,14 +564,19 @@ def bandeja_supervisor(request):
 
     try:
         if rol_lower in ROLES_MUNICIPALES:
-            tickets = Ticket.objects.select_related('id_empresa', 'id_area').all().order_by('-fecha_creacion', '-id_ticket')
+            tickets = (
+                Ticket.objects
+                .select_related('id_empresa', 'id_area', 'id_observacion')
+                .all()
+                .order_by('-fecha_creacion', '-id_ticket')
+            )
         else:
             # Aislamiento estricto: un supervisor sin empresa asignada NO ve ningún ticket
             if not usuario.id_empresa:
                 return Response([], status=status.HTTP_200_OK)
             tickets = (
                 Ticket.objects
-                .select_related('id_empresa', 'id_area')
+                .select_related('id_empresa', 'id_area', 'id_observacion')
                 .filter(id_empresa=usuario.id_empresa)
                 .order_by('-fecha_creacion', '-id_ticket')
             )
@@ -559,6 +584,9 @@ def bandeja_supervisor(request):
         data = []
         for tk in tickets:
             nombre_empresa = tk.id_empresa.razon_social if tk.id_empresa else None
+            ubicacion_obs = tk.id_observacion.ubicacion_observacion if tk.id_observacion else None
+            lat_obs, lng_obs = extraer_lat_lng_texto(ubicacion_obs)
+
             data.append({
                 "id": tk.id_ticket,
                 "id_ticket": tk.id_ticket,
@@ -574,6 +602,9 @@ def bandeja_supervisor(request):
                 "empresa_nombre": nombre_empresa,
                 "empresa_asignada": nombre_empresa,
                 "razon_social": nombre_empresa,
+                "ubicacion_observacion": ubicacion_obs,
+                "latitud": lat_obs,
+                "longitud": lng_obs,
             })
 
         return Response(data, status=status.HTTP_200_OK)
@@ -1546,5 +1577,199 @@ def marcar_todas_notificaciones_leidas(request):
             "no_leidas": 0
         }, status=status.HTTP_200_OK)
 
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+def detalle_editar_empresa(request, id_empresa):
+    usuario, error_resp = obtener_usuario_autenticado(request)
+    if error_resp:
+        return error_resp
+
+    try:
+        empresa = Empresa.objects.get(id_empresa=id_empresa)
+    except Empresa.DoesNotExist:
+        return Response({"error": "Empresa no encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        if usuario.rol.lower() in ROLES_EMPRESA_EXTERNA:
+            if not usuario.id_empresa or usuario.id_empresa_id != empresa.id_empresa:
+                return Response(
+                    {"error": "No tienes permisos para consultar datos de otra empresa."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        return Response(serializar_empresa(empresa), status=status.HTTP_200_OK)
+
+    # PUT, PATCH o DELETE: exclusivo para Administrador
+    if usuario.rol.lower() not in ROLES_ADMIN:
+        return Response(
+            {"error": "Solo un Administrador puede modificar o eliminar empresas."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    if request.method == 'DELETE':
+        try:
+            id_eliminado = empresa.id_empresa
+            empresa.delete()
+            return Response(
+                {"mensaje": "Empresa eliminada exitosamente.", "id_empresa": id_eliminado},
+                status=status.HTTP_200_OK
+            )
+        except ProtectedError:
+            return Response(
+                {"error": "No se puede eliminar la empresa porque tiene registros asociados (tickets, usuarios u observaciones)."},
+                status=status.HTTP_409_CONFLICT
+            )
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    campos_obligatorios = ['razon_social', 'rut_empresa']
+    for campo in campos_obligatorios:
+        if campo in request.data and not str(request.data.get(campo) or '').strip():
+            return Response(
+                {"error": f"El campo '{campo}' no puede quedar vacío."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    campos_editables = [
+        'razon_social',
+        'rut_empresa',
+        'direccion_comercial',
+        'direccion_base_nacimiento',
+        'nombre_admin_contrato',
+        'email_admin_contrato',
+        'telefono_admin_contrato',
+        'nombre_supervisor',
+        'email_supervisor',
+        'telefono_supervisor',
+    ]
+
+    try:
+        for campo in campos_editables:
+            if campo in request.data:
+                valor = request.data.get(campo)
+                if campo not in campos_obligatorios and valor == '':
+                    valor = None
+                setattr(empresa, campo, valor)
+
+        empresa.save()
+        return Response({
+            "mensaje": "Empresa actualizada exitosamente.",
+            "empresa": serializar_empresa(empresa)
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+def detalle_editar_usuario(request, id_usuario):
+    admin, error_resp = obtener_usuario_autenticado(request)
+    if error_resp:
+        return error_resp
+
+    if admin.rol.lower() not in ROLES_ADMIN:
+        return Response(
+            {"error": "Acceso denegado. Solo un Administrador puede ver, editar o eliminar usuarios."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        usuario_obj = Usuario.objects.select_related('id_empresa').get(id_usuario=id_usuario)
+    except Usuario.DoesNotExist:
+        return Response({"error": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response(serializar_usuario(usuario_obj), status=status.HTTP_200_OK)
+
+    if request.method == 'DELETE':
+        if admin.id_usuario == usuario_obj.id_usuario:
+            return Response(
+                {"error": "No puedes eliminar tu propio usuario mientras tienes sesión activa."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            id_eliminado = usuario_obj.id_usuario
+            usuario_obj.delete()
+            return Response(
+                {"mensaje": "Usuario eliminado exitosamente.", "id_usuario": id_eliminado},
+                status=status.HTTP_200_OK
+            )
+        except ProtectedError:
+            return Response(
+                {"error": "No se puede eliminar el usuario porque tiene registros asociados en el sistema."},
+                status=status.HTTP_409_CONFLICT
+            )
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # PUT o PATCH
+    nombre = request.data.get('nombre', usuario_obj.nombre)
+    apellido = request.data.get('apellido', usuario_obj.apellido)
+    email = request.data.get('email', usuario_obj.email)
+    rol = request.data.get('rol', usuario_obj.rol)
+    password = request.data.get('password')
+
+    if not all([
+        str(nombre or '').strip(),
+        str(apellido or '').strip(),
+        str(email or '').strip(),
+        str(rol or '').strip(),
+    ]):
+        return Response(
+            {"error": "Nombre, apellido, email y rol no pueden quedar vacíos."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if rol not in ROLES_VALIDOS_SISTEMA:
+        return Response(
+            {"error": f"Rol inválido. Debe ser uno de: {ROLES_VALIDOS_SISTEMA}"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if Usuario.objects.filter(email=email).exclude(id_usuario=usuario_obj.id_usuario).exists():
+        return Response(
+            {"error": "Ya existe otro usuario registrado con este correo electrónico."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        if rol in ['Supervisor de Empresa Externa', 'Operario de Empresa Externa']:
+            if 'id_empresa' in request.data:
+                id_empresa = request.data.get('id_empresa')
+                if not id_empresa:
+                    return Response(
+                        {"error": f"Debes especificar el id_empresa para el rol {rol}."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                empresa_vinculada = Empresa.objects.get(id_empresa=id_empresa)
+            else:
+                if not usuario_obj.id_empresa:
+                    return Response(
+                        {"error": f"Debes especificar el id_empresa para asignar el rol {rol}."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                empresa_vinculada = usuario_obj.id_empresa
+        else:
+            empresa_vinculada = None
+
+        usuario_obj.nombre = nombre.strip()
+        usuario_obj.apellido = apellido.strip()
+        usuario_obj.email = email.strip()
+        usuario_obj.rol = rol
+        usuario_obj.id_empresa = empresa_vinculada
+
+        if password is not None and str(password).strip() != '':
+            usuario_obj.password = make_password(password)
+
+        usuario_obj.save()
+
+        return Response({
+            "mensaje": "Usuario actualizado exitosamente.",
+            "usuario": serializar_usuario(usuario_obj)
+        }, status=status.HTTP_200_OK)
+
+    except Empresa.DoesNotExist:
+        return Response({"error": "La empresa especificada no existe."}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

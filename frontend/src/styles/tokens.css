@@ -1,0 +1,112 @@
+/* ==========================================================================
+   Tokens de diseño — paleta y escalas tomadas de dashboard_moderno.html
+   Tema claro por defecto; el tema oscuro se activa con la clase "dark" en <html>
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
+
+  /* Superficies */
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-muted: #f1f5f9;
+  --surface-raised: #e2e8f0;
+  --table-head: #f8fafc;
+  --row-hover: #f8fafc;
+  --header-bg: rgba(255, 255, 255, 0.8);
+
+  /* Bordes */
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  /* Texto */
+  --text: #334155;
+  --text-strong: #0f172a;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+
+  /* Acento (indigo → violeta) */
+  --accent: #6366f1;
+  --accent-2: #8b5cf6;
+  --accent-text: #4f46e5;
+  --accent-soft: rgba(99, 102, 241, 0.1);
+  --accent-border: rgba(99, 102, 241, 0.3);
+  --accent-active-bg: linear-gradient(90deg, rgba(79, 70, 229, 0.1), rgba(124, 58, 237, 0.1));
+  --gradient-accent: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --shadow-accent: 0 8px 20px -6px rgba(99, 102, 241, 0.5);
+
+  /* Estados semánticos */
+  --success: #10b981;
+  --success-text: #059669;
+  --success-soft: rgba(16, 185, 129, 0.1);
+  --success-border: rgba(16, 185, 129, 0.25);
+
+  --warning: #f59e0b;
+  --warning-text: #d97706;
+  --warning-soft: rgba(245, 158, 11, 0.12);
+  --warning-border: rgba(245, 158, 11, 0.3);
+
+  --danger: #f43f5e;
+  --danger-text: #e11d48;
+  --danger-soft: rgba(244, 63, 94, 0.1);
+  --danger-border: rgba(244, 63, 94, 0.28);
+
+  --info: #0ea5e9;
+  --info-text: #0284c7;
+  --info-soft: rgba(14, 165, 233, 0.1);
+  --info-border: rgba(14, 165, 233, 0.28);
+
+  --violet-text: #7c3aed;
+  --violet-soft: rgba(139, 92, 246, 0.12);
+  --violet-border: rgba(139, 92, 246, 0.3);
+
+  /* Elevación y forma */
+  --overlay: rgba(15, 23, 42, 0.5);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 24px 48px -12px rgba(15, 23, 42, 0.3);
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-pill: 999px;
+
+  /* Layout */
+  --sidebar-width: 16rem;
+  --header-height: 5rem;
+  --transition: 150ms ease;
+}
+
+html.dark {
+  color-scheme: dark;
+
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-muted: #0f172a;
+  --surface-raised: #334155;
+  --table-head: rgba(15, 23, 42, 0.5);
+  --row-hover: rgba(148, 163, 184, 0.08);
+  --header-bg: rgba(30, 41, 59, 0.8);
+
+  --border: #334155;
+  --border-strong: #475569;
+
+  --text: #cbd5e1;
+  --text-strong: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+
+  --accent-text: #818cf8;
+  --accent-active-bg: linear-gradient(90deg, rgba(79, 70, 229, 0.2), rgba(124, 58, 237, 0.2));
+
+  --success-text: #34d399;
+  --warning-text: #fbbf24;
+  --danger-text: #fb7185;
+  --info-text: #38bdf8;
+  --violet-text: #a78bfa;
+
+  --overlay: rgba(2, 6, 23, 0.65);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.6);
+}

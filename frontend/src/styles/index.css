@@ -1,0 +1,9 @@
+/* Punto de entrada de los estilos globales: tokens → base → primitivas de UI */
+@import './tokens.css';
+@import './base.css';
+@import './ui/buttons.css';
+@import './ui/forms.css';
+@import './ui/cards.css';
+@import './ui/tables.css';
+@import './ui/badges.css';
+@import './ui/feedback.css';

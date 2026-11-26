@@ -18,7 +18,7 @@ export default function FiscalizadorHome() {
   return (
     <div 
       className="fiscalizador-layout"
-      style={{ backgroundImage: `linear-gradient(rgba(248, 250, 252, 0.94), rgba(248, 250, 252, 0.94)), url(${fondo})` }}
+      style={{ backgroundImage: `url(${fondo})` }}
     >
       <div className="fiscalizador-card">
         <header className="fiscalizador-header">
@@ -47,8 +47,8 @@ export default function FiscalizadorHome() {
             className="fiscalizador-btn btn-crear"
           >
             <span className="btn-text">
-              <strong>Crear Nueva Observación</strong>
-              <small>Registrar una nueva incidencia en campo</small>
+              <strong>Nueva Observación</strong>
+              <small>Registrar una nueva incidencia</small>
             </span>
           </button>
 
@@ -59,7 +59,6 @@ export default function FiscalizadorHome() {
           >
             <span className="btn-text">
               <strong>Cerrar Sesión</strong>
-              <small>Salir de la sesión actual de forma segura</small>
             </span>
           </button>
         </div>

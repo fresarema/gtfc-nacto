@@ -118,7 +118,9 @@ export default function ObservacionesPendientesPage() {
   if (!esMunicipalOrAdmin) return null;
 
   return (
-    <div className="dashboard-app-layout">
+    <div className="dashboard-app-layout"
+    style={{ backgroundImage: `url(${fondo})` }}>
+      
       <Navbar />
 
       <main className="dashboard-main-content">

@@ -84,7 +84,7 @@ export default function CrearContratoPage() {
     <div 
       className="dashboard-app-layout"
       style={{ 
-        backgroundImage: `linear-gradient(rgba(248, 250, 252, 0.94), rgba(248, 250, 252, 0.94)), url(${fondo})`,
+        backgroundImage: `url(${fondo})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         minHeight: '100vh'

@@ -22,14 +22,12 @@ export default function TicketsSupervisorPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
 
-  // Estados de filtros
   const [fechaInicio, setFechaInicio] = useState<string>('');
   const [fechaFin, setFechaFin] = useState<string>('');
   const [estadoFiltro, setEstadoFiltro] = useState<string>('');
 
   const userDataString = localStorage.getItem('user_data');
   const usuario = userDataString ? JSON.parse(userDataString) : null;
-  const rol = usuario?.rol?.toLowerCase() || '';
 
   useEffect(() => {
     fetchTicketsSupervisor();
@@ -38,11 +36,17 @@ export default function TicketsSupervisorPage() {
   const fetchTicketsSupervisor = async () => {
     try {
       setLoading(true);
+      setError('');
       const token = localStorage.getItem('access_token');
       const response = await api.get('/tickets/supervisor/', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      setTickets(response.data || []);
+      const lista = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.results)
+          ? response.data.results
+          : [];
+      setTickets(lista);
     } catch (err: any) {
       console.error('Error al cargar los tickets del supervisor:', err);
       setError('No se pudieron obtener los tickets asociados a su empresa.');
@@ -51,13 +55,11 @@ export default function TicketsSupervisorPage() {
     }
   };
 
-  // Filtrado por rango de fecha y estado
   const ticketsFiltrados = tickets.filter((t) => {
-    const fechaItemBruta = t.fecha_creacion || '';
-    const fechaItem = fechaItemBruta.substring(0, 10);
+    const fechaItem = (t.fecha_creacion || '').substring(0, 10);
 
-    if (fechaInicio && fechaItem < fechaInicio) return false;
-    if (fechaFin && fechaItem > fechaFin) return false;
+    if (fechaInicio && fechaItem && fechaItem < fechaInicio) return false;
+    if (fechaFin && fechaItem && fechaItem > fechaFin) return false;
 
     if (estadoFiltro) {
       if (t.estado?.toLowerCase() !== estadoFiltro.toLowerCase()) return false;
@@ -72,13 +74,14 @@ export default function TicketsSupervisorPage() {
     setEstadoFiltro('');
   };
 
+  const normalizarClase = (valor?: string) =>
+    (valor || 'normal').toLowerCase().trim().replace(/\s+/g, '_');
+
   return (
-    <div 
-      className="dashboard-app-layout"
-      style={{ 
-        backgroundImage: `linear-gradient(rgba(248, 250, 252, 0.94), rgba(248, 250, 252, 0.94)), url(${fondo})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center'
+    <div
+      className="dashboard-app-layout supervisor-page-bg"
+      style={{
+        backgroundImage: `url(${fondo})`,
       }}
     >
       <Navbar />
@@ -88,48 +91,45 @@ export default function TicketsSupervisorPage() {
           <div>
             <h1 className="supervisor-title">Tickets de la Empresa</h1>
             <p className="supervisor-subtitle">
-              {usuario?.empresa_nombre || usuario?.empresa_asignada 
-                ? `Seguimiento de contratos para: ${usuario.empresa_nombre || usuario.empresa_asignada}` 
+              {usuario?.empresa_nombre || usuario?.empresa_asignada
+                ? `Seguimiento de contratos para: ${usuario.empresa_nombre || usuario.empresa_asignada}`
                 : 'Panel de seguimiento y gestión de tickets asignados a su empresa'}
             </p>
           </div>
-          <button onClick={() => navigate('/dashboard')} className="btn-volver-dash">
+          <button type="button" onClick={() => navigate('/dashboard')} className="btn-volver-dash">
             ← Volver al Panel
           </button>
         </header>
 
         {error && <div className="supervisor-error">{error}</div>}
 
-        {/* BARRA DE FILTROS */}
-        <div className="filter-card-container">
-          <div className="filter-label">
-            Filtrar Tickets:
-          </div>
-          <div className="filter-group">
-            <label>Desde:</label>
-            <input 
-              type="date" 
-              value={fechaInicio} 
+        <div className="list-filter-bar">
+          <div className="filter-field">
+            <label htmlFor="supervisor-desde">Desde</label>
+            <input
+              id="supervisor-desde"
+              type="date"
+              value={fechaInicio}
               onChange={(e) => setFechaInicio(e.target.value)}
-              className="filter-date-input"
             />
           </div>
-          <div className="filter-group">
-            <label>Hasta:</label>
-            <input 
-              type="date" 
-              value={fechaFin} 
+
+          <div className="filter-field">
+            <label htmlFor="supervisor-hasta">Hasta</label>
+            <input
+              id="supervisor-hasta"
+              type="date"
+              value={fechaFin}
               onChange={(e) => setFechaFin(e.target.value)}
-              className="filter-date-input"
             />
           </div>
-          <div className="filter-group" style={{ flexGrow: 1, maxWidth: '240px' }}>
-            <label>Estado:</label>
-            <select 
-              value={estadoFiltro} 
+
+          <div className="filter-field filter-field--grow">
+            <label htmlFor="supervisor-estado">Estado</label>
+            <select
+              id="supervisor-estado"
+              value={estadoFiltro}
               onChange={(e) => setEstadoFiltro(e.target.value)}
-              className="filter-date-input"
-              style={{ width: '100%' }}
             >
               <option value="">Todos los estados</option>
               <option value="Abierto">Abierto</option>
@@ -137,8 +137,9 @@ export default function TicketsSupervisorPage() {
               <option value="Cerrado">Cerrado</option>
             </select>
           </div>
+
           {(fechaInicio || fechaFin || estadoFiltro) && (
-            <button onClick={limpiarFiltros} className="btn-clean-filter">
+            <button type="button" onClick={limpiarFiltros} className="btn-clear-filter">
               Limpiar Filtros
             </button>
           )}
@@ -148,53 +149,56 @@ export default function TicketsSupervisorPage() {
           <div className="supervisor-loading">Cargando listado de tickets...</div>
         ) : (
           <div className="supervisor-table-card">
-            <table className="supervisor-data-table">
-              <thead>
-                <tr>
-                  <th>ID / CÓDIGO</th>
-                  <th>FECHA CREACIÓN</th>
-                  <th>VENCIMIENTO</th>
-                  <th>PRIORIDAD</th>
-                  <th>ESTADO</th>
-                  <th>ACCIONES</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ticketsFiltrados.length > 0 ? (
-                  ticketsFiltrados.map((tk) => (
-                    <tr key={tk.id_ticket}>
-                      <td className="font-mono">#{tk.cod_consulta_externa || tk.id_ticket}</td>
-                      <td>{tk.fecha_creacion || 'N/D'}</td>
-                      <td>{tk.fecha_vencimiento || 'N/D'}</td>
-                      <td>
-                        <span className={`badge-prioridad ${tk.prioridad?.toLowerCase()}`}>
-                          {tk.prioridad || 'Normal'}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`badge-estado ${tk.estado?.toLowerCase().replace(/\s+/g, '_')}`}>
-                          {tk.estado}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => navigate(`/tickets/${tk.id_ticket}`)}
-                          className="btn-link-detail"
-                        >
-                          Ver Detalle
-                        </button>
+            <div className="table-responsive-wrap">
+              <table className="supervisor-data-table">
+                <thead>
+                  <tr>
+                    <th>ID / CÓDIGO</th>
+                    <th>FECHA CREACIÓN</th>
+                    <th>VENCIMIENTO</th>
+                    <th>PRIORIDAD</th>
+                    <th>ESTADO</th>
+                    <th className="th-action-right">ACCIONES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ticketsFiltrados.length > 0 ? (
+                    ticketsFiltrados.map((tk) => (
+                      <tr key={tk.id_ticket}>
+                        <td className="font-mono">#{tk.cod_consulta_externa || tk.id_ticket}</td>
+                        <td>{tk.fecha_creacion || 'N/D'}</td>
+                        <td>{tk.fecha_vencimiento || 'N/D'}</td>
+                        <td>
+                          <span className={`badge-prioridad ${normalizarClase(tk.prioridad)}`}>
+                            {tk.prioridad || 'Normal'}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`badge-estado ${normalizarClase(tk.estado)}`}>
+                            {tk.estado}
+                          </span>
+                        </td>
+                        <td className="td-action-right">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/tickets/${tk.id_ticket}`)}
+                            className="btn-link-detail"
+                          >
+                            Ver Detalle
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="text-empty-table">
+                        No hay tickets registrados para su empresa en este rango o filtro.
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="text-empty-table">
-                      No hay tickets registrados para su empresa en este rango o filtro.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>

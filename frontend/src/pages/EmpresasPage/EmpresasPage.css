@@ -1,0 +1,238 @@
+.empresas-list-bg {
+  background-size: cover;
+  background-position: center;
+  min-height: 100vh;
+}
+
+.list-page-card {
+  max-width: 1040px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 2rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  margin: 0 auto;
+}
+
+.list-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 1.5rem;
+}
+
+.list-page-header h2 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.list-page-header p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.btn-primary-action {
+  background-color: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.65rem 1.15rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-primary-action:hover {
+  background-color: #1e293b;
+}
+
+.list-filter-bar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.6rem;
+  padding: 1rem;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 210px;
+}
+
+.filter-field--grow {
+  flex: 1 1 280px;
+}
+
+.filter-field label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+}
+
+.filter-field input,
+.filter-field select {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  color: #0f172a;
+  background-color: #ffffff;
+  outline: none;
+}
+
+.filter-field input:focus,
+.filter-field select:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
+}
+
+.btn-clear-filter {
+  background-color: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  padding: 0.65rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-clear-filter:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.list-error-banner {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.list-empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #64748b;
+  font-size: 0.925rem;
+  background-color: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.6rem;
+}
+
+.list-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.6rem;
+}
+
+.data-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.data-list-table th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.data-list-table td {
+  padding: 0.85rem 1rem;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.data-list-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-list-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.cell-strong {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.btn-row-detalle {
+  background-color: #0f172a;
+  color: #ffffff;
+  border: 1px solid #0f172a;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.btn-row-detalle:hover:not(:disabled) {
+  background-color: #1e293b;
+}
+
+.btn-row-detalle:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.edit-modal-footer--split {
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.edit-modal-footer-actions {
+  display: flex;
+  gap: 0.65rem;
+}
+
+.btn-modal-delete {
+  background-color: #ffffff;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 0.5rem;
+  height: 38px;
+  padding: 0 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-modal-delete:hover:not(:disabled) {
+  background-color: #ffffff;
+}
+
+.btn-modal-delete:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

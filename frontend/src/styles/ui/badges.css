@@ -1,0 +1,80 @@
+/* Insignias de estado y prioridad (las variantes salen del texto del estado en minúsculas) */
+
+.badge-estado,
+.badge-prioridad {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.7rem;
+  background: var(--badge-bg, var(--surface-muted));
+  border: 1px solid var(--badge-border, var(--border));
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--badge-fg, var(--text-muted));
+}
+
+.badge-estado::before {
+  content: '';
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Estados */
+.badge-estado.abierto,
+.badge-estado.pendiente {
+  --badge-bg: var(--warning-soft);
+  --badge-border: var(--warning-border);
+  --badge-fg: var(--warning-text);
+}
+.badge-estado.en_proceso {
+  --badge-bg: var(--accent-soft);
+  --badge-border: var(--accent-border);
+  --badge-fg: var(--accent-text);
+}
+.badge-estado.en_revision,
+.badge-estado.en_revisión {
+  --badge-bg: var(--violet-soft);
+  --badge-border: var(--violet-border);
+  --badge-fg: var(--violet-text);
+}
+.badge-estado.cerrado {
+  --badge-bg: var(--success-soft);
+  --badge-border: var(--success-border);
+  --badge-fg: var(--success-text);
+}
+.badge-estado.rechazado {
+  --badge-bg: var(--danger-soft);
+  --badge-border: var(--danger-border);
+  --badge-fg: var(--danger-text);
+}
+.badge-estado.convertido {
+  --badge-bg: var(--info-soft);
+  --badge-border: var(--info-border);
+  --badge-fg: var(--info-text);
+}
+
+/* Prioridades */
+.badge-prioridad.urgente {
+  --badge-bg: var(--danger-soft);
+  --badge-border: var(--danger-border);
+  --badge-fg: var(--danger-text);
+}
+.badge-prioridad.alta {
+  --badge-bg: var(--warning-soft);
+  --badge-border: var(--warning-border);
+  --badge-fg: var(--warning-text);
+}
+.badge-prioridad.media {
+  --badge-bg: var(--accent-soft);
+  --badge-border: var(--accent-border);
+  --badge-fg: var(--accent-text);
+}
+.badge-prioridad.baja {
+  --badge-bg: var(--success-soft);
+  --badge-border: var(--success-border);
+  --badge-fg: var(--success-text);
+}

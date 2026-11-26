@@ -72,6 +72,12 @@
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
 }
 
+.form-error-text {
+  font-size: 0.8rem;
+  color: #dc2626;
+  font-weight: 500;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -112,3 +118,93 @@
 .btn-submit:hover {
   background-color: #1e293b;
 }
+
+.crear-usuario-bg {
+  background-size: cover;
+  background-position: center;
+  min-height: 100vh;
+}
+
+/* Alerta en Pantalla / Overlay de Envío y Éxito */
+.submitting-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.submitting-alert-card {
+  background-color: #ffffff;
+  border-radius: 1rem;
+  max-width: 420px;
+  width: 100%;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.submitting-alert-card h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.submitting-alert-card p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.spinner-loader {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #0f172a;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 0.5rem;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.success-card {
+  border-top: 4px solid #15803d;
+}
+
+.success-icon-badge {
+  width: 52px;
+  height: 52px;
+  background-color: #dcfce7;
+  color: #15803d;
+  font-size: 1.75rem;
+  font-weight: 800;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5rem auto;
+}
+
+

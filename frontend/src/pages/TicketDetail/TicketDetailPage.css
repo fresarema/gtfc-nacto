@@ -1,7 +1,17 @@
+.ticket-detail-split-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr);
+  gap: 1.75rem;
+  align-items: start;
+  max-width: 1360px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
 /* Contenedor Principal del Detalle */
 .ticket-detail-card {
-  max-width: 900px;
-  margin: 0 auto;
+  width: 100%;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 1rem;
@@ -10,6 +20,63 @@
   box-sizing: border-box;
   position: relative;
   z-index: 1;
+}
+
+/* Panel lateral de Bitácora: ajustado al contenido y pegado al hacer scroll */
+.ticket-bitacora-panel {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+  align-self: start;
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0.75rem;
+}
+
+.ticket-bitacora-sticky-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.ticket-bitacora-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1.15rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ticket-bitacora-title {
+  margin: 0 0 0.2rem 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ticket-bitacora-subtitle {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.ticket-bitacora-count {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 0.5rem;
+  border-radius: 9999px;
+  background-color: #f1f5f9;
+  color: #0f172a;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .ticket-header {
@@ -98,7 +165,7 @@
   white-space: pre-wrap;
 }
 
-/* Botones de Auditoría Municipal (Garantizando interactividad) */
+/* Botones de Auditoría Municipal */
 .municipal-actions-section {
   margin-top: 2rem;
   padding-top: 1.5rem;
@@ -133,31 +200,31 @@
   z-index: 10;
 }
 
-.btn-conformidad { 
-  background-color: #0f172a; 
-  color: #ffffff; 
+.btn-conformidad {
+  background-color: #0f172a;
+  color: #ffffff;
 }
-.btn-conformidad:hover { 
-  background-color: #1e293b; 
-}
-
-.btn-solicitar-subsanacion { 
-  background-color: #ffffff; 
-  color: #334155; 
-  border-color: #cbd5e1; 
-}
-.btn-solicitar-subsanacion:hover { 
-  background-color: #f1f5f9; 
-  border-color: #94a3b8; 
+.btn-conformidad:hover {
+  background-color: #1e293b;
 }
 
-.btn-cerrar { 
-  background-color: #ffffff; 
-  color: #b91c1c; 
-  border-color: #fecaca; 
+.btn-solicitar-subsanacion {
+  background-color: #ffffff;
+  color: #334155;
+  border-color: #cbd5e1;
 }
-.btn-cerrar:hover { 
-  background-color: #fef2f2; 
+.btn-solicitar-subsanacion:hover {
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.btn-cerrar {
+  background-color: #ffffff;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+.btn-cerrar:hover {
+  background-color: #fef2f2;
 }
 
 .ticket-waiting-banner {
@@ -347,9 +414,20 @@
   background-color: #1e293b;
 }
 
+@media (max-width: 1120px) {
+  .ticket-detail-split-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ticket-bitacora-panel {
+    position: static;
+    top: auto;
+  }
+}
 
 @media (max-width: 768px) {
-  .ticket-detail-card {
+  .ticket-detail-card,
+  .ticket-bitacora-panel {
     padding: 1.25rem;
   }
 
